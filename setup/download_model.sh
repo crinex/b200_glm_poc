@@ -25,14 +25,22 @@ fi
 
 mkdir -p "$MODEL_DIR"
 
-# hf_transfer로 빠른 다운로드
-export HF_HUB_ENABLE_HF_TRANSFER=1
+# Xet 고성능 전송 활성화 (huggingface_hub >= 1.28)
+export HF_XET_HIGH_PERFORMANCE=1
 
 echo "📥 다운로드 시작..."
-huggingface-cli download "$MODEL_ID" \
-    --local-dir "$MODEL_DIR" \
-    --local-dir-use-symlinks False \
-    --resume-download
+python3 - <<PYEOF
+import os
+os.environ['HF_XET_HIGH_PERFORMANCE'] = '1'
+from huggingface_hub import snapshot_download
+path = snapshot_download(
+    repo_id="$MODEL_ID",
+    local_dir="$MODEL_DIR",
+    local_dir_use_symlinks=False,
+    resume_download=True,
+)
+print("완료:", path)
+PYEOF
 
 echo ""
 echo "✅ 다운로드 완료"
