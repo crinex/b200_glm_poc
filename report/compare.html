@@ -1,0 +1,429 @@
+<title>GLM-5.2 가속기 벤치마크</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<style>
+:root {
+  --bg:      #f2f5f8;
+  --surface: #ffffff;
+  --raised:  #e9eef4;
+  --line:    #d3dbe4;
+  --ink:     #161c26;
+  --ink-mid: #5b6a7d;
+  --ink-dim: #8695a8;
+
+  --b200:  #2f7de0;
+  --h200:  #22a08a;
+  --mtp:   #d9822b;
+  --moreh: #a545d8;
+
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:      #0c1016;
+    --surface: #141a23;
+    --raised:  #1c242f;
+    --line:    #2a3542;
+    --ink:     #e7edf4;
+    --ink-mid: #93a3b6;
+    --ink-dim: #6b7c91;
+
+    --b200:  #5aa8ff;
+    --h200:  #3fd3b6;
+    --mtp:   #f5a94f;
+    --moreh: #c877f0;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:      #0c1016;
+  --surface: #141a23;
+  --raised:  #1c242f;
+  --line:    #2a3542;
+  --ink:     #e7edf4;
+  --ink-mid: #93a3b6;
+  --ink-dim: #6b7c91;
+
+  --b200:  #5aa8ff;
+  --h200:  #3fd3b6;
+  --mtp:   #f5a94f;
+  --moreh: #c877f0;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 24px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* header */
+header { display: flex; flex-direction: column; gap: 12px; }
+h1 {
+  font-size: clamp(20px, 3vw, 27px);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+.cond {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--ink-mid);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.cond span { white-space: nowrap; }
+
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.tag.b200  .swatch { background: var(--b200); }
+.tag.h200  .swatch { background: var(--h200); }
+.tag.mtp   .swatch { background: var(--mtp); }
+.tag.moreh .swatch { background: var(--moreh); border-radius: 2px; transform: rotate(45deg); }
+.tag .note { color: var(--ink-dim); font-weight: 400; font-size: 11.5px; }
+
+/* charts */
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 18px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card h2 {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -.01em;
+}
+.card .hint {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  margin: 0 0 8px;
+}
+.plot { position: relative; height: 210px; }
+
+/* table */
+.tablecard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.tablecard > h2 {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.scroll { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+th {
+  padding: 9px 14px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--ink-dim);
+  text-align: right;
+  white-space: nowrap;
+  background: var(--raised);
+  border-bottom: 1px solid var(--line);
+}
+th:first-child { text-align: left; }
+td {
+  padding: 8px 14px;
+  text-align: right;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  color: var(--ink-mid);
+}
+td:first-child {
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  color: var(--ink);
+}
+td.key { color: var(--ink); font-weight: 500; }
+tbody tr:last-child td { border-bottom: none; }
+tr.grp-b200  td:first-child { box-shadow: inset 3px 0 0 var(--b200); }
+tr.grp-h200  td:first-child { box-shadow: inset 3px 0 0 var(--h200); }
+tr.grp-mtp   td:first-child { box-shadow: inset 3px 0 0 var(--mtp); }
+tr.grp-moreh td:first-child { box-shadow: inset 3px 0 0 var(--moreh); }
+tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom: 1px solid var(--line); }
+
+.foot {
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 1.7;
+  margin: 0;
+}
+.foot b { color: var(--ink-mid); font-weight: 600; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <h1>GLM-5.2 가속기 벤치마크</h1>
+    <div class="cond">
+      <span>ISL ≈ 8,200 tok</span>
+      <span>OSL 512 tok</span>
+      <span>FP8</span>
+      <span>8 GPU / server</span>
+      <span>1,024 고유 sheet</span>
+    </div>
+    <div class="legend">
+      <span class="tag b200"><span class="swatch"></span>B200 &nbsp;<span class="note">vLLM TP=8, MTP 미적용</span></span>
+      <span class="tag h200"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 미사용</span></span>
+      <span class="tag mtp"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 사용</span></span>
+      <span class="tag moreh"><span class="swatch"></span>Moreh MI355X &nbsp;<span class="note">conc 256 단일 측정</span></span>
+    </div>
+  </header>
+
+  <div class="charts">
+    <div class="card">
+      <h2>Interactivity</h2>
+      <p class="hint">tok/s/user — 높을수록 좋음</p>
+      <div class="plot"><canvas id="c-inter"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Output 처리량</h2>
+      <p class="hint">tok/s per server — 높을수록 좋음</p>
+      <div class="plot"><canvas id="c-out"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Input 처리량</h2>
+      <p class="hint">tok/s per server — 높을수록 좋음</p>
+      <div class="plot"><canvas id="c-in"></canvas></div>
+    </div>
+  </div>
+
+  <div class="tablecard">
+    <h2>측정값 전체</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>장비</th>
+            <th>Conc</th>
+            <th>TPOT (ms)</th>
+            <th>Interactivity<br>tok/s/user</th>
+            <th>Input TPS<br>/server</th>
+            <th>Output TPS<br>/server</th>
+            <th>Total TPS<br>/GPU</th>
+          </tr>
+        </thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="foot">
+    B200은 오늘 vLLM 0.28.0 · TP=8로 직접 측정했고, H200 및 Moreh 수치는 <b>H200_GLM5.2_Measure.pdf</b>에서 가져왔습니다.
+    네 측정 모두 ISL ≈ 8,200 tok / OSL 512 tok 동일 조건입니다.
+    B200에는 MTP speculative decoding을 적용하지 않았습니다.
+  </p>
+
+</div>
+
+<script>
+const DATA = {
+  b200: { label: 'B200', color: 'b200', rows: [
+    { c:1,   tpot:9.46,   inter:105.70, inTPS:1574,  outTPS:99,   totGPU:209  },
+    { c:4,   tpot:12.00,  inter:83.36,  inTPS:4903,  outTPS:307,  totGPU:651  },
+    { c:8,   tpot:13.34,  inter:74.97,  inTPS:8387,  outTPS:524,  totGPU:1114 },
+    { c:16,  tpot:17.14,  inter:58.34,  inTPS:13050, outTPS:815,  totGPU:1733 },
+    { c:32,  tpot:24.08,  inter:41.54,  inTPS:19223, outTPS:1201, totGPU:2553 },
+    { c:64,  tpot:46.83,  inter:21.35,  inTPS:19797, outTPS:1237, totGPU:2629 },
+    { c:128, tpot:98.49,  inter:10.15,  inTPS:19990, outTPS:1248, totGPU:2655 },
+    { c:256, tpot:136.87, inter:7.31,   inTPS:20259, outTPS:1265, totGPU:2691 },
+  ]},
+  h200: { label: 'H200 · MTP 미사용', color: 'h200', rows: [
+    { c:4,   inter:59.06, inTPS:1627, outTPS:203 },
+    { c:8,   inter:46.36, inTPS:2535, outTPS:317 },
+    { c:16,  inter:31.96, inTPS:3578, outTPS:447 },
+    { c:32,  inter:18.37, inTPS:4401, outTPS:550 },
+    { c:64,  inter:11.27, inTPS:5520, outTPS:690 },
+    { c:128, inter:9.77,  inTPS:5149, outTPS:643 },
+    { c:256, inter:9.82,  inTPS:5227, outTPS:653 },
+  ]},
+  mtp: { label: 'H200 · MTP 사용', color: 'mtp', rows: [
+    { c:4,   inter:86.36, inTPS:2357, outTPS:294 },
+    { c:8,   inter:54.75, inTPS:3209, outTPS:401 },
+    { c:16,  inter:36.34, inTPS:4126, outTPS:515 },
+    { c:32,  inter:21.93, inTPS:4999, outTPS:625 },
+    { c:64,  inter:12.26, inTPS:5730, outTPS:715 },
+    { c:128, inter:11.24, inTPS:5570, outTPS:696 },
+    { c:256, inter:11.23, inTPS:5618, outTPS:702 },
+  ]},
+  moreh: { label: 'Moreh MI355X', color: 'moreh', rows: [
+    { c:256, tpot:74.7, inter:13.39, inTPS:21996, outTPS:2777 },
+  ]},
+};
+
+// H200 계열은 TPOT을 Interactivity에서 역산 (PDF가 Interactivity로 기재)
+['h200','mtp'].forEach(k => DATA[k].rows.forEach(r => { r.tpot = 1000 / r.inter; }));
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+
+function baseOpts(yLabel) {
+  const grid = css('line');
+  const tick = css('ink-dim');
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'nearest', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: css('surface'),
+        titleColor: css('ink'),
+        bodyColor: css('ink-mid'),
+        borderColor: css('line'),
+        borderWidth: 1,
+        padding: 10,
+        titleFont: { family: 'Inter', size: 12, weight: '600' },
+        bodyFont: { family: 'JetBrains Mono', size: 11.5 },
+        callbacks: {
+          title: items => 'Concurrency ' + items[0].parsed.x,
+          label: ctx => ' ' + ctx.dataset.label + ': ' +
+            ctx.parsed.y.toLocaleString(undefined, { maximumFractionDigits: 1 }),
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'logarithmic',
+        title: { display: true, text: 'Concurrency', color: tick,
+                 font: { family: 'Inter', size: 11 } },
+        ticks: { color: tick, font: { family: 'JetBrains Mono', size: 10.5 },
+                 callback: v => [1,4,8,16,32,64,128,256].includes(v) ? v : '' },
+        grid: { color: grid, drawTicks: false },
+        border: { color: grid },
+      },
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: yLabel, color: tick,
+                 font: { family: 'Inter', size: 11 } },
+        ticks: { color: tick, font: { family: 'JetBrains Mono', size: 10.5 },
+                 callback: v => v >= 1000 ? (v/1000) + 'k' : v },
+        grid: { color: grid, drawTicks: false },
+        border: { color: grid },
+      },
+    },
+  };
+}
+
+function series(key, metric) {
+  const d = DATA[key];
+  const color = css(d.color);
+  const single = d.rows.length === 1;
+  return {
+    label: d.label,
+    data: d.rows.map(r => ({ x: r.c, y: r[metric] })),
+    borderColor: color,
+    backgroundColor: color,
+    pointBackgroundColor: color,
+    pointBorderColor: color,
+    pointRadius: single ? 7 : 3.5,
+    pointHoverRadius: single ? 9 : 6,
+    pointStyle: single ? 'rectRot' : 'circle',
+    showLine: !single,
+    borderWidth: 2,
+    tension: .3,
+    fill: false,
+  };
+}
+
+const charts = [
+  ['c-inter', 'inter',  'tok/s/user'],
+  ['c-out',   'outTPS', 'tok/s'],
+  ['c-in',    'inTPS',  'tok/s'],
+];
+const made = charts.map(([id, metric, yl]) => new Chart(document.getElementById(id), {
+  type: 'line',
+  data: { datasets: ['b200','h200','mtp','moreh'].map(k => series(k, metric)) },
+  options: baseOpts(yl),
+}));
+
+// 테마 전환 시 차트 색상 재적용
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  made.forEach((ch, i) => {
+    const metric = charts[i][1];
+    ch.data.datasets = ['b200','h200','mtp','moreh'].map(k => series(k, metric));
+    ch.options = baseOpts(charts[i][2]);
+    ch.update();
+  });
+});
+
+/* table */
+const tb = document.getElementById('tb');
+const num = (v, d = 0) => v == null ? '—'
+  : v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+
+['b200','h200','mtp','moreh'].forEach((key, gi) => {
+  const d = DATA[key];
+  if (gi > 0) {
+    const sp = document.createElement('tr');
+    sp.className = 'spacer';
+    sp.innerHTML = '<td colspan="7"></td>';
+    tb.appendChild(sp);
+  }
+  d.rows.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.className = 'grp-' + d.color;
+    tr.innerHTML =
+      '<td>' + (i === 0 ? d.label : '') + '</td>' +
+      '<td class="key">' + r.c + '</td>' +
+      '<td>' + num(r.tpot, 1) + '</td>' +
+      '<td class="key">' + num(r.inter, 2) + '</td>' +
+      '<td class="key">' + num(r.inTPS) + '</td>' +
+      '<td class="key">' + num(r.outTPS) + '</td>' +
+      '<td>' + num(r.totGPU) + '</td>';
+    tb.appendChild(tr);
+  });
+});
+</script>
