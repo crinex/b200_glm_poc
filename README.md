@@ -103,19 +103,18 @@ gen8k 1,024장 · ISL ≈ 8,200 · OSL 1,024 · Output TPS (tok/s per server)
 
 ## 다음 작업
 
-측정 완료 (deploygpu 동일 서버): 기준선 / MTP1+EP1 / MTP1+EP8
+완료 (서버 D, 풀스펙): 기준선 / MTP1+EP1 / MTP1+EP8 — `bench/run_3config_chain.sh`
+결론: 최적 = **MTP1 + EP1**, conc=128 에서 2,251 tok/s (FINDINGS.md §6-3)
+
+남은 후보:
 
 | 후보 | 명령 | 기대 |
 |---|---|---|
 | MTP spec-tokens 2 | `NO_EP=1 SPEC_TOKENS=2 bash bench/run_mtp1_ep_sweep.sh` | accept length 1.75→2.76 여지 |
-| KV cache 증량 | `NO_EP=1 EXTRA_ARGS="--gpu-memory-utilization 0.96" ...` | 상주 요청 150→증가 |
-| MoE 백엔드 | `NO_EP=1 EXTRA_ARGS="--moe-backend DEEPGEMM" ...` | 자동선택(FLASHINFER_TRTLLM) 대비 |
+| KV cache 증량 | `NO_EP=1 EXTRA_ARGS="--gpu-memory-utilization 0.96" ...` | 상주 요청 증가 |
+| MoE 백엔드 | `NO_EP=1 EXTRA_ARGS="--moe-backend DEEPGEMM" ...` | 자동선택 대비 미검증 |
 
-기각/보류:
-- mnbt 상향 — 효과 없음 확인 (FINDINGS.md §7)
-- `--disable-custom-all-reduce` — 당시 교착의 원인이 아니었음이 밝혀졌으나
-  성능 목적으로는 역방향. 보류
-- EP8 — 이 서버에서 해로움 확인
+기각: EP8 (서버 C·D 모두 열세), mnbt 상향 (효과 없음), --disable-custom-all-reduce (보류)
 
 ### 커스텀 커널 계획
 

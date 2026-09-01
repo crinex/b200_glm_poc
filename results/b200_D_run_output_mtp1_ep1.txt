@@ -1,0 +1,218 @@
+======================================
+  구성 : MTP=spec-tokens 1, EP=off
+  추가 : (없음)
+  sweep: 4,8,16,32,64,128,256
+  OSL  : 1024
+  결과 : /workspace/results/mtp1_noep_sweep
+======================================
+
+=== GPU 정리 ===
+시작 사용량: 173732 173732 173732 173732 173732 173732 173732 173708 
+잔여물 정리: /tmp/vllm_dist_* 1개, /dev/shm 0개
+최종 사용량: 0 0 0 0 0 0 0 0 
+20초 대기 (CUDA IPC 비동기 해제)
+정리 완료.
+
+=== 서버 기동 ===
+  serve /workspace/models/GLM-5.2-FP8 --host 0.0.0.0 --port 30269 --tensor-parallel-size 8 --async-scheduling --kv-cache-dtype fp8 --served-model-name glm-5.2-fp8 --max-model-len 16384 --max-num-seqs 256 --gpu-memory-utilization 0.93 --enable-chunked-prefill --enable-prefix-caching --trust-remote-code --spec-method mtp --spec-tokens 1
+  PID 26833
+기동 대기 (최대 35분)...
+  ... 60s  Loading safetensors checkpoint shards:  31%
+  ... 80s  Loading safetensors checkpoint shards:  86%
+  ... 100s  Loading safetensors checkpoint shards: 100%
+  ... 120s  Loading safetensors checkpoint shards: 100%
+  ... 140s  Loading safetensors checkpoint shards: 100%
+  ... 160s  Loading safetensors checkpoint shards: 100%
+  ... 180s  Loading safetensors checkpoint shards: 100%
+  ... 200s  Loading safetensors checkpoint shards: 100%
+  ... 220s  Loading safetensors checkpoint shards: 100%
+  ... 240s  Loading safetensors checkpoint shards: 100%
+  ... 260s  Loading safetensors checkpoint shards: 100%
+  ... 280s  DeepGEMM warmup
+  ... 300s  Capturing CUDA graphs
+  ... 320s  Capturing CUDA graphs
+  ... 340s  Capturing CUDA graphs
+  ... 360s  Capturing CUDA graphs
+기동 완료 (약 380초)
+
+=== 서버 정보 ===
+(EngineCore pid=27374) INFO 09-01 13:46:49 [kv_cache_utils.py:1869] GPU KV cache size: 1,477,888 tokens, Maximum concurrency for 16,384 tokens per request: 90.20x
+(APIServer pid=26833) INFO 09-01 13:42:36 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=16384.
+ 'max_model_len': 16384
+ 'gpu_memory_utilization': 0.93
+ 'kv_cache_dtype': 'fp8'
+ 'max_num_seqs': 256
+ 'async_scheduling': True
+ 'spec_method': 'mtp'
+ 'spec_tokens': 1}
+(Worker_TP0 pid=27600) INFO 09-01 13:43:49 [fp8.py:713] Using MoEPrepareAndFinalizeNoDPEPMonolithic
+(Worker_TP0 pid=27600) INFO 09-01 13:43:11 [fp8.py:411] Using FLASHINFER_TRTLLM Fp8 MoE backend out of potential backends: ['AITER', 'FLASHINFER_TRTLLM', 'FLASHINFER_CUTLASS', 'DEEPGEMM', 'TRITON', 'MARLIN', 'HUMMING', 'BATCHED_DEEPGEMM', 'BATCHED_TRITON', 'XPU', 'CPU', 'HPC'].
+(Worker pid=27600) INFO 09-01 13:43:07 [cuda_communicator.py:266] Using ['CUSTOM', 'SYMM_MEM', 'PYNCCL'] all-reduce backends (in dispatch order) for group 'tp:0' out of potential backends: ['NCCL_SYMM_MEM', 'QUICK_REDUCE', 'FLASHINFER', 'AITER_CUSTOM', 'CUSTOM', 'SYMM_MEM', 'PYNCCL'].
+(Worker pid=27600) INFO 09-01 13:43:09 [cuda_communicator.py:266] Using ['PYNCCL'] all-reduce backends (in dispatch order) for group 'ep:0' out of potential backends: ['NCCL_SYMM_MEM', 'QUICK_REDUCE', 'FLASHINFER', 'AITER_CUSTOM', 'CUSTOM', 'SYMM_MEM', 'PYNCCL'].
+{"object":"list","data":[{"id":"glm-5.2-fp8","object":"model","created":1788270523,"owned_by":"vllm","root":"/workspace/models/GLM-5.2-FP8","parent":null,"max_model_len":16384,"permission":[{"id":"mod
+
+=== 벤치 sweep=4,8,16,32,64,128,256, requests=1024, max_tokens=1024 ===
+
+[conc=4]  16 requests
+=============== Serving Benchmark Result ===============
+Successful requests:                     16
+Failed requests:                         0
+Total input tokens (tokens):             131153
+Total generated tokens (tokens):         16384
+Mean ISL (tokens):                       8197.1
+Mean OSL (tokens):                       1024.0
+Request throughput (req/s):              0.42
+Input token throughput (tok/s):          3419.70
+Output token throughput (tok/s):         427.20
+Total Token throughput (tok/s):          3846.90
+Median TPOT (ms):                        8.13
+Interactivity (tok/s/user):              122.95
+Total token throughput per GPU (tok/s):  480.86
+Sampling:                                temperature server default, top_p server default
+========================================================
+
+[conc=8]  32 requests
+=============== Serving Benchmark Result ===============
+Successful requests:                     32
+Failed requests:                         0
+Total input tokens (tokens):             262388
+Total generated tokens (tokens):         32768
+Mean ISL (tokens):                       8199.6
+Mean OSL (tokens):                       1024.0
+Request throughput (req/s):              0.76
+Input token throughput (tok/s):          6244.20
+Output token throughput (tok/s):         779.80
+Total Token throughput (tok/s):          7024.00
+Median TPOT (ms):                        9.69
+Interactivity (tok/s/user):              103.19
+Total token throughput per GPU (tok/s):  878.00
+Sampling:                                temperature server default, top_p server default
+========================================================
+
+[conc=16]  64 requests
+=============== Serving Benchmark Result ===============
+Successful requests:                     64
+Failed requests:                         0
+Total input tokens (tokens):             524597
+Total generated tokens (tokens):         65536
+Mean ISL (tokens):                       8196.8
+Mean OSL (tokens):                       1024.0
+Request throughput (req/s):              1.22
+Input token throughput (tok/s):          9972.20
+Output token throughput (tok/s):         1245.79
+Total Token throughput (tok/s):          11217.99
+Median TPOT (ms):                        12.00
+Interactivity (tok/s/user):              83.36
+Total token throughput per GPU (tok/s):  1402.25
+Sampling:                                temperature server default, top_p server default
+========================================================
+
+[conc=32]  128 requests
+=============== Serving Benchmark Result ===============
+Successful requests:                     128
+Failed requests:                         0
+Total input tokens (tokens):             1049221
+Total generated tokens (tokens):         131072
+Mean ISL (tokens):                       8197.0
+Mean OSL (tokens):                       1024.0
+Request throughput (req/s):              1.83
+Input token throughput (tok/s):          15002.09
+Output token throughput (tok/s):         1874.11
+Total Token throughput (tok/s):          16876.20
+Median TPOT (ms):                        16.05
+Interactivity (tok/s/user):              62.31
+Total token throughput per GPU (tok/s):  2109.53
+Sampling:                                temperature server default, top_p server default
+========================================================
+
+[conc=64]  256 requests
+=============== Serving Benchmark Result ===============
+Successful requests:                     256
+Failed requests:                         0
+Total input tokens (tokens):             2098406
+Total generated tokens (tokens):         262144
+Mean ISL (tokens):                       8196.9
+Mean OSL (tokens):                       1024.0
+Request throughput (req/s):              2.00
+Input token throughput (tok/s):          16370.06
+Output token throughput (tok/s):         2045.04
+Total Token throughput (tok/s):          18415.10
+Median TPOT (ms):                        29.71
+Interactivity (tok/s/user):              33.65
+Total token throughput per GPU (tok/s):  2301.89
+Sampling:                                temperature server default, top_p server default
+========================================================
+
+[conc=128]  512 requests
+=============== Serving Benchmark Result ===============
+Successful requests:                     512
+Failed requests:                         0
+Total input tokens (tokens):             4197125
+Total generated tokens (tokens):         524288
+Mean ISL (tokens):                       8197.5
+Mean OSL (tokens):                       1024.0
+Request throughput (req/s):              2.20
+Input token throughput (tok/s):          18019.27
+Output token throughput (tok/s):         2250.89
+Total Token throughput (tok/s):          20270.16
+Median TPOT (ms):                        52.91
+Interactivity (tok/s/user):              18.90
+Total token throughput per GPU (tok/s):  2533.77
+Sampling:                                temperature server default, top_p server default
+========================================================
+
+[conc=256]  1024 requests
+=============== Serving Benchmark Result ===============
+Successful requests:                     1024
+Failed requests:                         0
+Total input tokens (tokens):             8394757
+Total generated tokens (tokens):         1048576
+Mean ISL (tokens):                       8198.0
+Mean OSL (tokens):                       1024.0
+Request throughput (req/s):              2.11
+Input token throughput (tok/s):          17286.25
+Output token throughput (tok/s):         2159.20
+Total Token throughput (tok/s):          19445.45
+Median TPOT (ms):                        74.13
+Interactivity (tok/s/user):              13.49
+Total token throughput per GPU (tok/s):  2430.68
+Sampling:                                temperature server default, top_p server default
+========================================================
+
+========================================================
+SWEEP SUMMARY (B200 × GLM-5.2 FP8, TP=8)
+========================================================
+|ISL|OSL|GPU|Precision|TP|p|d|Concurrency|TPOT(ms)|Interactivity (Token/sec/user)|Input Token Throughput per GPU (Token/sec/gpu)|Output Token Throughput per GPU (Token/sec/gpu)|Total Token Throughput per GPU (Token/sec/gpu)|Input Token Throughput per server (Token/sec/server)|Output Token Throughput per server (Token/sec/server)|
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+|8197|1024|B200 (8)|FP8|8|||4|8.13|122.95|427|53|481|3420|427|
+|8200|1024|B200 (8)|FP8|8|||8|9.69|103.19|781|97|878|6244|780|
+|8197|1024|B200 (8)|FP8|8|||16|12.00|83.36|1247|156|1402|9972|1246|
+|8197|1024|B200 (8)|FP8|8|||32|16.05|62.31|1875|234|2110|15002|1874|
+|8197|1024|B200 (8)|FP8|8|||64|29.71|33.65|2046|256|2302|16370|2045|
+|8198|1024|B200 (8)|FP8|8|||128|52.91|18.90|2252|281|2534|18019|2251|
+|8198|1024|B200 (8)|FP8|8|||256|74.13|13.49|2161|270|2431|17286|2159|
+
+결과 저장: /workspace/results/mtp1_noep_sweep/sweep_summary.md
+지문 저장: /workspace/results/mtp1_noep_sweep/fingerprint.txt
+  (116 줄)
+
+=== 결과 ===
+# B200 × GLM-5.2 FP8 벤치마크 결과
+
+|ISL|OSL|GPU|Precision|TP|p|d|Concurrency|TPOT(ms)|Interactivity (Token/sec/user)|Input Token Throughput per GPU (Token/sec/gpu)|Output Token Throughput per GPU (Token/sec/gpu)|Total Token Throughput per GPU (Token/sec/gpu)|Input Token Throughput per server (Token/sec/server)|Output Token Throughput per server (Token/sec/server)|
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+|8197|1024|B200 (8)|FP8|8|||4|8.13|122.95|427|53|481|3420|427|
+|8200|1024|B200 (8)|FP8|8|||8|9.69|103.19|781|97|878|6244|780|
+|8197|1024|B200 (8)|FP8|8|||16|12.00|83.36|1247|156|1402|9972|1246|
+|8197|1024|B200 (8)|FP8|8|||32|16.05|62.31|1875|234|2110|15002|1874|
+|8197|1024|B200 (8)|FP8|8|||64|29.71|33.65|2046|256|2302|16370|2045|
+|8198|1024|B200 (8)|FP8|8|||128|52.91|18.90|2252|281|2534|18019|2251|
+|8198|1024|B200 (8)|FP8|8|||256|74.13|13.49|2161|270|2431|17286|2159|
+=== MTP 수락률 (서버 로그) ===
+(APIServer pid=26833) INFO 09-01 14:05:56 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.74, Accepted throughput: 2501.47 tokens/s, Drafted throughput: 3359.53 tokens/s, Accepted: 25016 tokens, Drafted: 33597 tokens, Per-position acceptance rate: 0.745, Avg Draft acceptance rate: 74.5%
+(APIServer pid=26833) INFO 09-01 14:06:06 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.76, Accepted throughput: 1125.88 tokens/s, Drafted throughput: 1491.17 tokens/s, Accepted: 11259 tokens, Drafted: 14912 tokens, Per-position acceptance rate: 0.755, Avg Draft acceptance rate: 75.5%
+(APIServer pid=26833) INFO 09-01 14:06:16 [metrics.py:120] SpecDecoding metrics: Mean acceptance length: 1.76, Accepted throughput: 412.87 tokens/s, Drafted throughput: 543.26 tokens/s, Accepted: 4129 tokens, Drafted: 5433 tokens, Per-position acceptance rate: 0.760, Avg Draft acceptance rate: 76.0%
+
+결과: /workspace/results/mtp1_noep_sweep/sweep_summary.md
+벤치 로그: /workspace/logs/bench_mtp1_noep.log
+서버 로그: /workspace/logs/vllm_mtp1_noep.log
