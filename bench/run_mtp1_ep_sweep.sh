@@ -28,6 +28,7 @@
 #   SKIP_BOOT=1 bash bench/run_mtp1_ep_sweep.sh      # 이미 떠 있으면 측정만
 #   SPEC_TOKENS=2 bash bench/run_mtp1_ep_sweep.sh    # MTP 토큰 수 변경
 #   NO_EP=1 bash bench/run_mtp1_ep_sweep.sh          # EP 끄고 비교
+#   NO_MTP=1 NO_EP=1 bash bench/run_mtp1_ep_sweep.sh # 기준선 (MTP·EP 모두 끔)
 #   SWEEP=64,256 bash bench/run_mtp1_ep_sweep.sh     # 축소 측정
 #   EXTRA_ARGS="--disable-custom-all-reduce" bash bench/run_mtp1_ep_sweep.sh
 #                                                    # 임의 vllm serve 인자 추가
@@ -44,6 +45,7 @@ SWEEP="${SWEEP:-4,8,16,32,64,128,256}"
 REQUESTS="${REQUESTS:-1024}"
 MAX_TOKENS="${MAX_TOKENS:-1024}"       # OSL. "8k1k 벤치" 문서 조건
 SPEC_TOKENS="${SPEC_TOKENS:-1}"
+NO_MTP="${NO_MTP:-0}"
 NO_EP="${NO_EP:-0}"
 REPO="${REPO:-/workspace/b200_glm_poc}"
 SKIP_BOOT="${SKIP_BOOT:-0}"
@@ -52,7 +54,7 @@ EXTRA_ARGS="${EXTRA_ARGS:-}"
 # 결과 디렉터리 접미사. 미지정 시 EXTRA_ARGS 에서 자동 생성
 TAG_SUFFIX="${TAG_SUFFIX:-}"
 
-TAG="mtp${SPEC_TOKENS}$([ "$NO_EP" = "1" ] && echo "_noep" || echo "_ep")"
+TAG="$([ "$NO_MTP" = "1" ] && echo "nomtp" || echo "mtp${SPEC_TOKENS}")$([ "$NO_EP" = "1" ] && echo "_noep" || echo "_ep")"
 if [ -n "$EXTRA_ARGS" ]; then
     if [ -n "$TAG_SUFFIX" ]; then
         TAG="${TAG}_${TAG_SUFFIX}"
@@ -68,7 +70,7 @@ BENCH_LOG="${BENCH_LOG:-/workspace/logs/bench_${TAG}.log}"
 mkdir -p "$(dirname "$LOG")" "$OUT"
 
 echo "======================================"
-echo "  구성 : MTP spec-tokens=$SPEC_TOKENS, EP=$([ "$NO_EP" = "1" ] && echo off || echo on)"
+echo "  구성 : MTP=$([ "$NO_MTP" = "1" ] && echo off || echo "spec-tokens $SPEC_TOKENS"), EP=$([ "$NO_EP" = "1" ] && echo off || echo on)"
 echo "  추가 : ${EXTRA_ARGS:-(없음)}"
 echo "  sweep: $SWEEP"
 echo "  OSL  : $MAX_TOKENS"
@@ -96,9 +98,8 @@ if [ "$SKIP_BOOT" != "1" ]; then
         --enable-chunked-prefill
         --enable-prefix-caching
         --trust-remote-code
-        --spec-method mtp
-        --spec-tokens "$SPEC_TOKENS"
     )
+    [ "$NO_MTP" = "1" ] || ARGS+=(--spec-method mtp --spec-tokens "$SPEC_TOKENS")
     [ "$NO_EP" = "1" ] || ARGS+=(--enable-expert-parallel)
     # shellcheck disable=SC2206  # 공백 구분 인자를 그대로 펼친다
     [ -n "$EXTRA_ARGS" ] && ARGS+=($EXTRA_ARGS)
