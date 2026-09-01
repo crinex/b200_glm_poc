@@ -139,6 +139,42 @@ WARNING: 200 sheets < 1024 requests -- reused sheets hit the prefix cache
 ```
 이 경고가 나오면 결과를 버릴 것.
 
+### Input TPS 는 prefill 성능 지표가 아니다 — Output TPS × (ISL/OSL) 이다
+
+벤치의 Input TPS = 전체 입력 토큰 / 전체 벽시계 시간이고, 벽시계 시간에는
+decode 가 포함된다. OSL 1,024 면 시간의 대부분이 decode 이므로 Input TPS 가
+희석된다. 실제 prefill 속도는 vLLM 서버 로그의 `Avg prompt throughput`
+(측정 중 24,577 tok/s) 을 봐야 한다. 벤치가 보고한 값은 16,956 이었다.
+
+수식으로 Input TPS ≈ Output TPS × (ISL/OSL). 우리 측정 (ISL/OSL = 8.0):
+
+| conc | Output TPS | × 8.0 | 실측 Input TPS |
+|---|---|---|---|
+| 4 | 372 | 2,976 | 2,979 |
+| 64 | 1,831 | 14,648 | 14,660 |
+| 128 | 2,118 | 16,944 | 16,956 |
+| 256 | 2,065 | 16,520 | 16,534 |
+
+오차 0.1% 이내. **Input TPS 는 독립 정보가 없다. Output TPS 만 보면 된다.**
+
+### H200 / Moreh 의 ISL:OSL 비율은 8:1 로 확정된다
+
+위 관계를 PDF 수치에 적용하면 비율을 역산할 수 있다.
+
+| 측정 | Input TPS | Output TPS | 비율 |
+|---|---|---|---|
+| H200 MTP 미사용 @256 | 5,227 | 653 | 8.00 |
+| H200 MTP 사용 @256 | 5,618 | 702 | 8.00 |
+| H200 MTP 사용 @4 | 2,357 | 294 | 8.02 |
+| Moreh @256 | 21,996 | 2,777 | 7.92 |
+
+전부 8:1 이다. PDF 에 ISL/OSL 이 기재되지 않았지만 **비율은 확정**되며,
+gen8k 실측 ISL 8,211 과 "8k1k 벤치" 명칭을 합치면 OSL 1,024 로 볼 근거가 된다.
+(§6 의 "ISL/OSL 없음" 항목은 이 계산으로 상당 부분 해소된다.)
+
+처음에 `--max-tokens 512` 로 돌린 측정이 왜 조건 불일치인지도 이것으로 설명된다.
+그 경우 비율이 16:1 이 되어 다른 측정과 성립하지 않는다.
+
 ### `--conc` 는 `--sweep ""` 없이는 무시된다
 
 ```python
