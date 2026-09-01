@@ -63,6 +63,36 @@ mlx5dv_reg_dmabuf_mr - libmlx5.so.1: undefined symbol, version MLX5_1.25
 
 ---
 
+## 0-1. deploygpu 인스턴스 초기화 (2026-09-01 확립)
+
+Vast.ai 이미지와 달리 빈 서버다. **`setup/setup_deploygpu.sh` 를 먼저 실행할 것.**
+접속은 `ssh b200` (로컬 `~/.ssh/config` 등록, 키 `~/.ssh/deploygpu_b200_openssh`.
+같은 이름의 `.pem` 파일은 형식이 깨져 있어 사용 불가).
+
+에러 → 원인 매핑 (겪은 순서대로):
+
+| 증상 | 원인 | 해결 |
+|---|---|---|
+| venv 생성 시 ensurepip 오류 | python3.12-venv 미설치 (+ apt 캐시 낡음) | `apt update && apt install python3.12-venv` |
+| `torch.cuda.is_available()=False` | 드라이버 570 = CUDA 12.8 브랜치, torch 는 cu130 | `cuda-compat-13-0` + ld.so.conf 최우선 등록 |
+| `Error 802: system not yet initialized` | Fabric Manager 미기동 (NVL5 필수) | 아래 FM 체인 |
+| FM: "ibstat not found" | 프로바이더의 FM 시작 스크립트가 요구 | `infiniband-diags` |
+| FM: "ib_umad not loaded" | NVL5 관리 경로 | `modprobe ib_umad` + modules-load.d |
+| FM: "/opt/nvidia/nvlsm/sbin/nvlsm does not exist" | NVLink Subnet Manager 미설치 | `apt install nvlsm` |
+
+FM 패키지는 커널 드라이버와 **정확히 같은 버전**이어야 한다
+(`nvidia-fabricmanager-570=570.195.03-1`). forward-compat 은 사용자 공간
+libcuda(580.178.04)만 교체하므로 재부팅이 필요 없다.
+
+성공 로그: `OpenSM: Entering MASTER state` →
+`Successfully configured all the available GPUs and NVSwitches` →
+`torch.cuda.is_available() = True`, B200 × 8.
+
+주의: 이 인스턴스의 nvswitch 는 `/dev/nvidia-nvswitch*` 로 보이지 않고
+lspci 에도 안 잡히지만 (가상화), FM 없이는 CUDA 가 열리지 않는다.
+
+---
+
 ## 1. 환경 (실측)
 
 | 항목 | 값 |
