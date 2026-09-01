@@ -13,8 +13,11 @@
 #     position1 93.8% / position2 88.1% (accept length 2.76) 였다.
 #     1 은 accept length 1.94 지만 draft 오버헤드와 KV cache 소모가 작다.
 #   - --enable-expert-parallel 추가
-#     기본값은 비활성이다. 로그의 MoEPrepareAndFinalizeNoDPEPMonolithic 및
-#     EPLB rank N/A 가 근거이며, 전문가는 TP 로만 샤딩된다.
+#     기본값은 비활성. 켜지면 전문가 256개가 GPU 8장에 32개씩 통째로 배분된다.
+#     판정 로그: "[EP Rank 0/8] Expert parallelism is enabled.
+#                 Local/global number of experts: 32/256"
+#     주의: MoEPrepareAndFinalizeNoDPEPMonolithic 은 EP 지표가 아니다.
+#     EP 를 켜도 끄도 동일하게 출력된다 (NoDP + Monolithic 조건).
 #
 # sweep 은 4,8,16,32,64,128,256 — 원본 워크플로 문서 명령이자
 # H200_GLM5.2_Measure.pdf 표의 concurrency 와 일치한다.
@@ -149,7 +152,6 @@ grep -a "GPU KV cache size" "$LOG" 2>/dev/null | tail -1
 grep -a "max_num_batched_tokens" "$LOG" 2>/dev/null | tail -1
 grep -a "non-default args" "$LOG" 2>/dev/null | tail -1 \
     | tr ',' '\n' | grep -E "spec_|expert|kv_cache|max_num_seqs|gpu_memory|max_model_len|async" || true
-# EP 실제 활성 여부 (NoDPEP = 미사용)
 grep -a "MoEPrepareAndFinalize" "$LOG" 2>/dev/null | tail -1
 grep -a "MoE backend" "$LOG" 2>/dev/null | tail -1
 # EP 실제 활성 여부는 이 라인으로 판정한다 (NoDPEP 문자열은 지표가 아님)
