@@ -1,7 +1,65 @@
-# 검증된 사실 (2026-08-31 세션)
+# 검증된 사실 (2026-08-31 ~ 09-01)
 
 실측으로 확인한 것만 적는다. 추론은 "미검증"으로 표시한다.
 다음 세션에서 같은 것을 다시 파헤치지 않기 위한 문서다.
+
+---
+
+## 0. 가장 먼저 읽을 것 — NCCL P2P transport 교착
+
+**서버를 SIGKILL 로 죽이면 이후 모든 기동이 교착한다. 인스턴스 재시작만이 복구 방법이다.**
+
+2026-09-01 에 실측으로 확인. 이 인스턴스의 **첫 기동만 성공**하고,
+SIGKILL 이후 6회 기동이 전부 동일 지점에서 멈췄다.
+
+### 증상
+
+- 예외·에러 로그 없음. 무증상 정지
+- 로그가 `[pynccl.py:113] vLLM is using nccl==2.29.7` 직후 멈추고
+  `[cuda_communicator.py] Using [...] all-reduce backends ... 'tp:0'` 에 도달하지 않음
+  (정상이면 4초 만에 도달)
+- 워커 8개가 `State: R`, CPU 99.9% 로 무한 회전. 스레드 63개
+- GPU 는 1,074 MiB (CUDA 컨텍스트만), 사용률 0%. 가중치 로드 안 됨
+- `/tmp/vllm_dist_*` 파일이 4,160 bytes 에서 멈춤 (성공 시 16,352 bytes)
+
+### NCCL_DEBUG=INFO 로 특정한 지점
+
+```
+Bootstrap timings total 0.286458 (...)          ← 부트스트랩 정상 완료
+New proxy send connection 6 from local rank 6, transport 0
+Connected to proxy localRank 0 -> 0x7aedf40052d0   ← 마지막 줄. 이후 정지
+```
+
+rendezvous 는 0.29초에 끝난다. 멈추는 곳은 **P2P transport 설정
+(transport 0 = NVLink/PCIe) 의 CUDA IPC 핸들 교환** 구간이다.
+
+부수적으로 IB 심볼 오류가 16건 찍히지만 교착의 직접 원인인지는 미확정:
+```
+mlx5dv_reg_dmabuf_mr - libmlx5.so.1: undefined symbol, version MLX5_1.25
+```
+
+### 원인이 아닌 것들 (전부 소거됨)
+
+| 후보 | 검증 |
+|---|---|
+| vLLM 인자 | `--disable-custom-all-reduce` 없이도, EP 꺼도 재현 |
+| `VLLM_ALLREDUCE_USE_SYMM_MEM` | `=0` 으로도 재현 |
+| `/dev/shm` 고갈 | 998G 중 8.0K 사용 |
+| 공유메모리/세마포어 누수 | `ipcs -m`, `ipcs -s` 모두 비어 있음 |
+| 좀비 프로세스 | 0개 |
+| GPU 메모리 누수 | kill 하면 0 으로 복귀 |
+| 잔여 파일 | `/tmp/vllm_dist_*`, `/dev/shm` 삭제 + 60초 대기 후에도 재현 |
+
+### 대처
+
+- **예방**: 서버를 SIGKILL 하지 말 것. `serve/gpu_reset.sh` 가 SIGTERM 을
+  먼저 시도한다. 벤치 실패 시 서버를 살려두고 벤치만 재실행할 것
+  (`SKIP_BOOT=1`)
+- **복구**: 인스턴스 재시작. 프로세스/파일 정리로는 풀리지 않는다
+- `NCCL_P2P_DISABLE=1` 로 기동될 가능성은 있으나 GPU 간 통신이 느려져
+  성능 측정값이 무의미해진다. 벤치마크에는 쓸 수 없다
+- py-spy 로 스택을 뜨려 했으나 컨테이너에서 ptrace 차단
+  (`/proc/sys` 읽기 전용). `NCCL_DEBUG=INFO` 가 대안이다
 
 ---
 
@@ -308,6 +366,20 @@ DP=1 이어도 TP 그룹 8 장에 걸쳐 EP 가 성립한다.
 EP 를 켜도 끄도 동일하게 출력된다. `NoDP`(데이터 병렬 없음) + `Monolithic`(단일 노드)
 조건을 가리키며 EP 유무와 무관하다. 이것을 "No DP, No EP" 로 오독해
 EP 가 꺼졌다고 판단한 적이 있다 (2026-09-01).
+
+### EP 크기는 직접 지정할 수 없다 — DP × TP 로 파생된다
+
+expert 관련 인자는 네 개뿐이고 크기 지정 옵션이 없다:
+```
+--enable-expert-parallel / --no-enable-expert-parallel
+--expert-placement-strategy
+--enable-return-routed-experts
+```
+
+DP=1, TP=8 에서 켜면 **무조건 EP8** 이 된다 (전문가 256개 → GPU 8장에 32개씩).
+**"EP1" 은 expert parallel 을 끄는 것**과 같다. 전문가를 EP 로 분산하지 않고
+TP 로 샤딩하는 상태이며, 이것이 기본값이다.
+스크립트에서는 `NO_EP=1`.
 
 ### MoE 백엔드는 자동 선택된다
 
