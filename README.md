@@ -72,52 +72,24 @@ report/
 FINDINGS.md             검증된 사실 + 실패 기록 (먼저 읽을 것)
 ```
 
-## 측정 결과 (B200 × 8, TP=8, 가중치 FP8 · KV cache FP8)
+## 측정 결과 — 동일 서버 3구성 분해 (2026-09-01, deploygpu)
 
-gen8k 1,024 고유 sheet · ISL ≈ 8,200 · OSL 1,024 · sweep 4~256
+gen8k 1,024장 · ISL ≈ 8,200 · OSL 1,024 · Output TPS (tok/s per server)
 
-| conc | 기준선 Output TPS | MTP1+EP8 Output TPS | 개선 |
-|---|---|---|---|
-| 4 | 304 | 372 | +22.4% |
-| 8 | 569 | 721 | +26.7% |
-| 16 | 920 | 1,173 | +27.5% |
-| 32 | 1,408 | 1,764 | +25.3% |
-| 64 | 1,772 | 1,831 | +3.3% |
-| 128 | 2,010 | **2,118** | +5.4% |
-| 256 | 2,007 | 2,065 | +2.9% |
+| conc | 기준선 | MTP1+EP1 (최적) | MTP1+EP8 | MTP 몫 | EP8 몫 |
+|---|---|---|---|---|---|
+| 32 | 985 | 1,327 | 1,328 | +35% | 0% |
+| 64 | 1,387 | **1,712** | 1,587 | +23% | −7% |
+| 128 | 1,854 | **2,013** | 1,783 | +9% | −11% |
+| 256 | 1,843 | **1,994** | 1,729 | +8% | −13% |
 
-최고 처리량은 **conc=128, MTP1+EP8 에서 2,118 tok/s**.
-낮은 concurrency 에서 MTP 효과가 크고 (+22~27%), 높은 구간에서 줄어든다 (+3~5%).
-전체 수치는 `results/` 참조.
+- **MTP(spec-tokens 1): 전 구간 +8~35%** (draft 수락률 74~79%)
+- **EP8: 고concurrency 에서 해로움** → 최적 구성은 **MTP1 + EP1**
+- 최고 처리량 conc=128 에서 2,013 tok/s. H200 MTP(696) 대비 2.9×
+- 서버 간 편차가 −16% 에 달하므로 구성 비교는 반드시 같은 서버에서
+  (`results/README.md`, FINDINGS.md §6-2)
 
-주의: Input TPS 는 Output TPS × (ISL/OSL) 과 오차 0.1% 내로 일치하며
-prefill 성능 지표가 아니다 (FINDINGS.md §4).
-
-## 환경 (실측)
-
-| 항목 | 값 |
-|---|---|
-| GPU | NVIDIA B200 × 8, sm_100, 178.34 GiB/GPU |
-| CUDA | 13.0 |
-| PyTorch | 2.13.0+cu130 |
-| vLLM | 0.28.0 |
-| 모델 | `zai-org/GLM-5.2-FP8` (141 shards, 722GB) |
-| 인터프리터 | `/venv/main/bin/python3` |
-
-## 측정 결과 (B200 × 8, TP=8, KV cache fp8, MTP 미적용)
-
-ISL ~8,200 / OSL 1,024 / gen8k 1,024장
-
-| conc | TPOT(ms) | Interactivity | Input TPS | Output TPS |
-|---|---|---|---|---|
-| 4 | 11.48 | 87.09 | 2,660 | 333 |
-| 16 | 15.97 | 62.60 | 7,523 | 940 |
-| 32 | 20.70 | 48.32 | 11,724 | 1,465 |
-| 64 | 35.57 | 28.11 | 13,883 | 1,734 |
-| 128 | 62.69 | 15.95 | 15,810 | 1,975 |
-| 256 | 83.75 | 11.94 | 16,138 | 2,016 |
-
-전체는 `results/b200_osl1024_kvfp8.md`.
+전체 수치와 서버별 인덱스: [`results/README.md`](results/README.md)
 
 ## 적용된 최적화
 
@@ -131,22 +103,19 @@ ISL ~8,200 / OSL 1,024 / gen8k 1,024장
 
 ## 다음 작업
 
-측정 완료: 기준선, MTP1+EP8
+측정 완료 (deploygpu 동일 서버): 기준선 / MTP1+EP1 / MTP1+EP8
 
-미측정:
+| 후보 | 명령 | 기대 |
+|---|---|---|
+| MTP spec-tokens 2 | `NO_EP=1 SPEC_TOKENS=2 bash bench/run_mtp1_ep_sweep.sh` | accept length 1.75→2.76 여지 |
+| KV cache 증량 | `NO_EP=1 EXTRA_ARGS="--gpu-memory-utilization 0.96" ...` | 상주 요청 150→증가 |
+| MoE 백엔드 | `NO_EP=1 EXTRA_ARGS="--moe-backend DEEPGEMM" ...` | 자동선택(FLASHINFER_TRTLLM) 대비 |
 
-| 구성 | 목적 |
-|---|---|
-| `NO_EP=1 SPEC_TOKENS=1` | EP 기여도 분리 (MTP1+EP8 − MTP1+EP1 = EP 몫) |
-| `SPEC_TOKENS=2` | accept length 2.76 vs 1.83 — 처리량으로 확인 |
-| `EXTRA_ARGS="--gpu-memory-utilization 0.96"` | KV cache 증량 |
-| `EXTRA_ARGS="--moe-backend DEEPGEMM"` | MoE 가 SM 140/148 점유 |
-
-시도했으나 불가:
-
-- `--disable-custom-all-reduce` — 기동 교착. 다만 이 인자가 원인이 아니라
-  SIGKILL 후 NCCL P2P 교착이 원인이었다 (FINDINGS.md §0). 재검증 필요
-- Expert Parallel 크기 지정 — vLLM 에 옵션이 없다. DP × TP 로 파생
+기각/보류:
+- mnbt 상향 — 효과 없음 확인 (FINDINGS.md §7)
+- `--disable-custom-all-reduce` — 당시 교착의 원인이 아니었음이 밝혀졌으나
+  성능 목적으로는 역방향. 보류
+- EP8 — 이 서버에서 해로움 확인
 
 ### 커스텀 커널 계획
 
