@@ -7,6 +7,21 @@
 **서버가 다르면 수치를 직접 비교하지 말 것.** 같은 구성이 서버 간 −16% 차이났다
 (FINDINGS.md §6-2).
 
+## 서버 D — Vast 계열 (드라이버 595.91.07, 1000W, docker, 2026-09-01)
+
+동일 서버 3구성 완전 세트. **지문 동봉: `fingerprint_serverD_20260901.txt`**
+(전력 1000W/1000W, SM max 1965MHz, NVLink 전 쌍 NV18, docker, NUMA 정상)
+
+| 파일 | 구성 | conc=128 Output | conc=256 Output |
+|---|---|---|---|
+| `b200_D_baseline_sweep.md` | MTP·EP 없음 | 2,003 | 1,999 |
+| `b200_D_mtp1_ep1_sweep.md` | **MTP1, EP 끔 — 최적** | **2,251** | 2,159 |
+| `b200_D_mtp1_ep8_sweep.md` | MTP1, EP8 | 2,133 | 2,078 |
+
+분해: MTP +8~38% (수락률 75.2%, accept length 1.75), EP8 −4~−6% (균일).
+서빙 인자 원문: `b200_D_server_args_*.txt`
+서버 B 기준선과 ±1% 이내 재현 → 풀스펙 인스턴스 간 수치는 재현됨. C 만 예외.
+
 ## 서버 C — deploygpu (드라이버 570 + cuda-compat, 2026-09-01)
 
 동일 서버 3구성. 분해가 유효한 세트.
