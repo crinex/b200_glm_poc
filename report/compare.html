@@ -16,6 +16,7 @@
 
   --b200:  #2f7de0;
   --b200base: #93b8e2;
+  --b200ep8: #7c66cf;
   --h200:  #22a08a;
   --mtp:   #d9822b;
   --moreh: #a545d8;
@@ -34,6 +35,7 @@
 
     --b200:  #5aa8ff;
     --b200base: #4a6d99;
+    --b200ep8: #9b8cf0;
     --h200:  #3fd3b6;
     --mtp:   #f5a94f;
     --moreh: #c877f0;
@@ -50,6 +52,7 @@
 
   --b200:  #5aa8ff;
   --b200base: #4a6d99;
+  --b200ep8: #9b8cf0;
   --h200:  #3fd3b6;
   --mtp:   #f5a94f;
   --moreh: #c877f0;
@@ -195,6 +198,7 @@ td.key { color: var(--ink); font-weight: 500; }
 tbody tr:last-child td { border-bottom: none; }
 tr.grp-b200  td:first-child { box-shadow: inset 3px 0 0 var(--b200); }
 tr.grp-b200base td:first-child { box-shadow: inset 3px 0 0 var(--b200base); }
+tr.grp-b200ep8 td:first-child { box-shadow: inset 3px 0 0 var(--b200ep8); }
 tr.grp-h200  td:first-child { box-shadow: inset 3px 0 0 var(--h200); }
 tr.grp-mtp   td:first-child { box-shadow: inset 3px 0 0 var(--mtp); }
 tr.grp-moreh td:first-child { box-shadow: inset 3px 0 0 var(--moreh); }
@@ -221,8 +225,8 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
       <span>가중치 FP8 · KV cache FP8</span>
     </div>
     <div class="legend">
-      <span class="tag b200"><span class="swatch"></span>B200 · MTP+EP &nbsp;<span class="note">spec-tokens 1 · expert parallel</span></span>
-      <span class="tag b200base"><span class="swatch"></span>B200 · 기준선 &nbsp;<span class="note">MTP·EP 미적용</span></span>
+      <span class="tag b200"><span class="swatch"></span>B200 · MTP1+EP1 &nbsp;<span class="note">MTP spec-tokens 1 · EP 끔 — 최적</span></span>
+      <span class="tag b200base"><span class="swatch"></span>B200 · 기준선 &nbsp;<span class="note">MTP·EP 미적용 (점선)</span></span>
       <span class="tag h200"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 미사용</span></span>
       <span class="tag mtp"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 사용</span></span>
       <span class="tag moreh"><span class="swatch"></span>Moreh MI355X &nbsp;<span class="note">conc 256 단일 측정</span></span>
@@ -268,19 +272,19 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
   </div>
 
   <p class="foot">
-    <b>B200</b> — 직접 측정. 공통: TP=8 · <code>kv-cache-dtype fp8</code>
+    <b>B200</b> — 동일 서버(deploygpu, 드라이버 570 + CUDA 13 forward-compat)에서
+    3구성 직접 측정. 공통: TP=8 · <code>kv-cache-dtype fp8</code>
     · <code>max-model-len 16384</code> · <code>max-num-seqs 256</code>
-    · <code>gpu-memory-utilization 0.93</code> · <code>async-scheduling</code>
-    · chunked prefill + prefix caching.<br>
-    <b>MTP+EP</b> = <code>--spec-method mtp --spec-tokens 1</code>
-    + <code>--enable-expert-parallel</code> (전문가 256개를 GPU 8장에 32개씩 배분).
-    MTP draft 수락률 83.3%. KV cache 1,457,536 tok (기준선 1,571,008 tok — MTP 레이어 메모리).
-    MTP·EP 를 동시에 적용했으므로 개선분의 기여도는 분리되지 않았습니다.<br>
+    · <code>gpu-memory-utilization 0.93</code> · <code>async-scheduling</code>.<br>
+    동일 서버 분해: <b>MTP(spec-tokens 1)는 전 구간 +8~35%</b> (draft 수락률 74~79%),
+    <b>EP8 은 고concurrency 에서 −11~−13%</b> → 최적은 MTP1+EP1 (표의 MTP1+EP8 행 참조,
+    차트에는 생략). 서버 간 편차가 커서(같은 구성이 인스턴스 간 −16%) B200 수치는
+    이전 게시본과 직접 비교하면 안 됩니다.<br>
     <b>H200 · Moreh</b> — <b>H200_GLM5.2_Measure.pdf</b> 인용.
-    해당 문서에 ISL / OSL 및 서버 구성(max-num-seqs, kv-cache-dtype, gpu-util, 실제 TP)이
-    기재되어 있지 않아 조건 일치를 확인할 수 없습니다. 표의 "FP8" 표기도 벤치 스크립트의
-    라벨 인자일 뿐 측정값이 아닙니다. Moreh 는 원본 워크플로 문서의 예시 명령이
-    <code>--precision MXFP4</code> 라 FP8 표기와 상충합니다.<br>
+    서버 구성(max-num-seqs, kv-cache-dtype, gpu-util, 실제 TP)이 문서화되어 있지 않고,
+    표의 "FP8" 은 벤치 스크립트 라벨입니다. Moreh 는 원본 워크플로 문서의 예시가
+    <code>--precision MXFP4</code> 라 표기와 상충합니다. Input/Output 비 8:1 은
+    전 측정에서 일치함을 확인했습니다 (ISL:OSL = 8:1).<br>
     따라서 이 페이지는 <b>각 측정의 처리량 비교</b>이며 동일 조건 하드웨어 비교로 읽으면 안 됩니다.
   </p>
 
@@ -288,23 +292,32 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
 
 <script>
 const DATA = {
-  b200: { label: 'B200 · MTP+EP', color: 'b200', rows: [
-    { c:4,   tpot:9.07,  inter:110.21, inTPS:2979,  outTPS:372,  totGPU:419  },
-    { c:8,   tpot:10.52, inter:95.02,  inTPS:5776,  outTPS:721,  totGPU:812  },
-    { c:16,  tpot:12.95, inter:77.20,  inTPS:9391,  outTPS:1173, totGPU:1320 },
-    { c:32,  tpot:17.02, inter:58.75,  inTPS:14118, outTPS:1764, totGPU:1985 },
-    { c:64,  tpot:32.49, inter:30.78,  inTPS:14660, outTPS:1831, totGPU:2061 },
-    { c:128, tpot:56.16, inter:17.81,  inTPS:16956, outTPS:2118, totGPU:2384 },
-    { c:256, tpot:75.24, inter:13.29,  inTPS:16534, outTPS:2065, totGPU:2325 },
+  b200: { label: 'B200 · MTP1+EP1 (최적)', color: 'b200', rows: [
+    { c:4,   tpot:10.25, inter:97.60, inTPS:2455,  outTPS:307,  totGPU:345  },
+    { c:8,   tpot:12.70, inter:78.71, inTPS:4816,  outTPS:601,  totGPU:677  },
+    { c:16,  tpot:19.04, inter:52.53, inTPS:6308,  outTPS:788,  totGPU:887  },
+    { c:32,  tpot:22.93, inter:43.60, inTPS:10620, outTPS:1327, totGPU:1493 },
+    { c:64,  tpot:35.90, inter:27.86, inTPS:13703, outTPS:1712, totGPU:1927 },
+    { c:128, tpot:60.23, inter:16.60, inTPS:16119, outTPS:2013, totGPU:2267 },
+    { c:256, tpot:74.87, inter:13.36, inTPS:15965, outTPS:1994, totGPU:2245 },
   ]},
   b200base: { label: 'B200 · 기준선', color: 'b200base', dash: [5, 4], rows: [
-    { c:4,   tpot:11.27, inter:88.73, inTPS:2437,  outTPS:304,  totGPU:343  },
-    { c:8,   tpot:13.11, inter:76.29, inTPS:4553,  outTPS:569,  totGPU:640  },
-    { c:16,  tpot:15.78, inter:63.37, inTPS:7365,  outTPS:920,  totGPU:1036 },
-    { c:32,  tpot:20.14, inter:49.65, inTPS:11274, outTPS:1408, totGPU:1585 },
-    { c:64,  tpot:34.24, inter:29.21, inTPS:14181, outTPS:1772, totGPU:1994 },
-    { c:128, tpot:60.58, inter:16.51, inTPS:16094, outTPS:2010, totGPU:2263 },
-    { c:256, tpot:84.96, inter:11.77, inTPS:16069, outTPS:2007, totGPU:2259 },
+    { c:4,   tpot:14.08, inter:71.05, inTPS:2069,  outTPS:259,  totGPU:291  },
+    { c:8,   tpot:16.25, inter:61.54, inTPS:3707,  outTPS:463,  totGPU:521  },
+    { c:16,  tpot:20.43, inter:48.94, inTPS:5802,  outTPS:725,  totGPU:816  },
+    { c:32,  tpot:30.54, inter:32.74, inTPS:7887,  outTPS:985,  totGPU:1109 },
+    { c:64,  tpot:45.17, inter:22.14, inTPS:11099, outTPS:1387, totGPU:1561 },
+    { c:128, tpot:65.55, inter:15.26, inTPS:14843, outTPS:1854, totGPU:2087 },
+    { c:256, tpot:86.91, inter:11.51, inTPS:14752, outTPS:1843, totGPU:2074 },
+  ]},
+  b200ep8: { label: 'B200 · MTP1+EP8', color: 'b200ep8', tableOnly: true, rows: [
+    { c:4,   tpot:12.23, inter:81.79, inTPS:2381,  outTPS:297,  totGPU:335  },
+    { c:8,   tpot:13.50, inter:74.08, inTPS:4480,  outTPS:559,  totGPU:630  },
+    { c:16,  tpot:18.29, inter:54.67, inTPS:6767,  outTPS:845,  totGPU:952  },
+    { c:32,  tpot:22.64, inter:44.17, inTPS:10634, outTPS:1328, totGPU:1495 },
+    { c:64,  tpot:38.20, inter:26.18, inTPS:12706, outTPS:1587, totGPU:1787 },
+    { c:128, tpot:66.84, inter:14.96, inTPS:14272, outTPS:1783, totGPU:2007 },
+    { c:256, tpot:87.97, inter:11.37, inTPS:13843, outTPS:1729, totGPU:1946 },
   ]},
   h200: { label: 'H200 · MTP 미사용', color: 'h200', rows: [
     { c:4,   inter:59.06, inTPS:1627, outTPS:203 },
@@ -430,7 +443,7 @@ const tb = document.getElementById('tb');
 const num = (v, d = 0) => v == null ? '—'
   : v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
 
-['b200','b200base','h200','mtp','moreh'].forEach((key, gi) => {
+['b200','b200ep8','b200base','h200','mtp','moreh'].forEach((key, gi) => {
   const d = DATA[key];
   if (gi > 0) {
     const sp = document.createElement('tr');
