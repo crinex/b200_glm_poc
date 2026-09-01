@@ -5,43 +5,56 @@ NVIDIA B200 (Blackwell sm_100) 8장에서 GLM-5.2 FP8 추론 성능 측정 및 �
 **측정값과 검증된 사실은 [FINDINGS.md](FINDINGS.md) 를 먼저 읽을 것.**
 서버 인자 근거, 실패한 조합, 틀린 추론 기록이 모두 거기 있다.
 
-## 서버 리셋 후 복원
-
-빈 인스턴스에서 한 줄:
+## 서버 리셋 후 복원 — 두 명령
 
 ```bash
-git clone https://github.com/crinex/b200_glm_poc.git /workspace/b200_glm_poc && \
-cd /workspace/b200_glm_poc && bash setup/full_setup.sh
+# 1) 세팅 전부 (프로바이더 자동 감지 → 필요 시 초기화 → vLLM·모델·gen8k·지문)
+git clone https://<PAT>@github.com/crinex/b200_glm_poc.git /workspace/b200_glm_poc && \
+  cd /workspace/b200_glm_poc && bash setup/setup_all.sh
+# /workspace 가 없는 프로바이더(deploygpu 등)면 클론 전에:
+#   sudo mkdir -p /ephemeral/workspace && sudo ln -s /ephemeral/workspace /workspace
+
+# 2) 실험 실행 (목록은 bench/experiments.conf 에서 편집)
+setsid nohup bash bench/run_experiments.sh > /workspace/logs/experiments.out 2>&1 &
+tail -f /workspace/logs/experiments.out
 ```
 
-`full_setup.sh` 가 vLLM 설치 → torchaudio 제거 → 모델 704GB → gen8k 1,024장을
-순서대로 처리하고, 이미 있는 단계는 건너뛴다. 세팅 후 바로 측정까지 하려면
-`RUN_BENCH=1` 을 붙인다.
+## 실험 정의 — bench/experiments.conf 만 고치면 됩니다
 
-측정:
-
-```bash
-bash bench/run_mtp1_ep_sweep.sh                    # MTP spec-tokens 1 + EP8
-NO_EP=1 bash bench/run_mtp1_ep_sweep.sh            # EP1 (expert parallel 끔)
-SPEC_TOKENS=2 bash bench/run_mtp1_ep_sweep.sh      # MTP 2 토큰
-EXTRA_ARGS="--gpu-memory-utilization 0.96" bash bench/run_mtp1_ep_sweep.sh
-SKIP_BOOT=1 bash bench/run_mtp1_ep_sweep.sh        # 서버가 이미 떠 있으면
 ```
+# <실험이름>  <옵션들>
+baseline     NO_MTP=1 NO_EP=1
+mtp2_ep1     NO_EP=1 SPEC_TOKENS=2
+kvup_ep1     NO_EP=1 EXTRA_ARGS="--gpu-memory-utilization 0.96"
+```
+
+| 키 | 의미 | 기본값 |
+|---|---|---|
+| `NO_MTP=1` | MTP 끔 | MTP 켬 |
+| `SPEC_TOKENS=n` | MTP draft 토큰 수 | 1 |
+| `NO_EP=1` | Expert Parallel 끔 | EP8 켬 |
+| `SWEEP=...` | concurrency 목록 | 4,8,16,32,64,128,256 |
+| `MAX_TOKENS=n` | OSL | 1024 ("8k1k" 조건) |
+| `EXTRA_ARGS="..."` | 임의 vllm serve 인자 | 없음 |
+
+고정 조건: Weight FP8 · KV fp8 · TP=8 · DP=1 · gen8k 1,024장 · ignore_eos.
+실험마다 결과 폴더에 `sweep_summary.md` + `server_args.txt` + `config.txt`
++ `run_output.txt` + `fingerprint.txt` 가 동봉되고, 전체 요약은
+`/workspace/results/experiments_summary.md` (4개 지표만).
 
 ### 반드시 지킬 것
 
-**서버를 SIGKILL 로 죽이지 말 것.** 죽이면 NCCL P2P transport 가 교착해
-이후 **모든 기동이 실패**하고, 인스턴스 재시작 외에는 복구 방법이 없다.
-벤치가 실패하면 서버는 살려두고 `SKIP_BOOT=1` 로 벤치만 재실행할 것.
-자세한 증상과 소거된 원인은 [FINDINGS.md](FINDINGS.md) §0 참조.
-
-정상 정리는 `bash serve/gpu_reset.sh` (SIGTERM 우선, 잔여물 정리 포함).
+**서버를 SIGKILL 로 죽이지 말 것.** NCCL P2P 가 교착해 이후 모든 기동이
+실패하며 인스턴스 재시작 외 복구 불가 (FINDINGS.md §0).
+벤치만 실패했으면 `SKIP_BOOT=1` 로 벤치만 재실행.
+정상 정리는 `bash serve/gpu_reset.sh`.
 
 ## 디렉토리 구조
 
 ```
 setup/
-  full_setup.sh         빈 인스턴스 → 측정 가능 상태까지 한 번에
+  setup_all.sh          ★ 진입점 — 프로바이더 감지 + 아래 전부 자동
+  full_setup.sh         vLLM·모델·gen8k·지문
   bootstrap.sh          레포 클론 + 환경 설치
   install.sh            vLLM 0.28.0 (버전 고정) + 의존성
   download_model.sh     GLM-5.2-FP8 704GB
@@ -49,7 +62,10 @@ serve/
   start_server.sh       vLLM 서버 (KV_DTYPE / MAX_BATCHED 등 환경변수)
   gpu_reset.sh          SIGTERM 우선 정리 + GPU/잔여물 해제
 bench/
-  run_mtp1_ep_sweep.sh  MTP·EP 측정 (SPEC_TOKENS / NO_EP / EXTRA_ARGS / SKIP_BOOT)
+  experiments.conf      ★ 실험 목록 — 이 파일의 값만 편집
+  run_experiments.sh    conf 를 읽어 순차 실행 + 요약 생성
+  run_mtp1_ep_sweep.sh  단일 실험 엔진 (conf 실행기가 호출)
+  run_3config_chain.sh  (구) 3구성 체인 — experiments.conf 로 대체됨
   run_mtp_conc256.sh    단일 concurrency 측정
   bench_sweep_b200.py   B200 벤치
   bench_sweep_h200.py   H200 원본 (참조)
