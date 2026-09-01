@@ -43,7 +43,10 @@ PY="${PY:-/venv/main/bin/python3}"
 
 # ── 2. 모델 ───────────────────────────────────────────────────────
 step "3/4  모델"
-n=$(find "$MODEL_DIR" -name '*.safetensors' 2>/dev/null | wc -l | tr -d ' ')
+# find 가 없는 디렉터리에서 exit 1 을 내면 pipefail+set -e 로 스크립트가
+# 조용히 죽는다 (2026-09-01 실제 발생). || true 로 가드.
+n=$(find "$MODEL_DIR" -name '*.safetensors' 2>/dev/null | wc -l | tr -d ' ' || true)
+n=${n:-0}
 if [ "$n" -eq 141 ]; then
     echo "  이미 존재 (141 safetensors, $(du -sh "$MODEL_DIR" | cut -f1))"
 else
@@ -52,7 +55,8 @@ fi
 
 # ── 3. gen8k ──────────────────────────────────────────────────────
 step "4/4  gen8k 워크로드"
-g=$(find "$GEN_DIR" -maxdepth 1 -name '*target*.txt' 2>/dev/null | wc -l | tr -d ' ')
+g=$(find "$GEN_DIR" -maxdepth 1 -name '*target*.txt' 2>/dev/null | wc -l | tr -d ' ' || true)
+g=${g:-0}
 if [ "$g" -ge 1024 ]; then
     echo "  이미 존재 ($g 개)"
 else
@@ -62,8 +66,8 @@ fi
 cat <<EOF
 
 =========== 세팅 완료 ===========
-  모델  : $(find "$MODEL_DIR" -name '*.safetensors' | wc -l | tr -d ' ') safetensors
-  gen8k : $(find "$GEN_DIR" -maxdepth 1 -name '*target*.txt' | wc -l | tr -d ' ') 개
+  모델  : $(find "$MODEL_DIR" -name '*.safetensors' 2>/dev/null | wc -l | tr -d ' ' || true) safetensors
+  gen8k : $(find "$GEN_DIR" -maxdepth 1 -name '*target*.txt' 2>/dev/null | wc -l | tr -d ' ' || true) 개
   GPU   : $(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | tr '\n' ' ')
 
   측정 (기본: MTP spec-tokens 1 + Expert Parallel):
