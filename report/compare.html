@@ -15,6 +15,7 @@
   --ink-dim: #8695a8;
 
   --b200:  #2f7de0;
+  --b200base: #93b8e2;
   --h200:  #22a08a;
   --mtp:   #d9822b;
   --moreh: #a545d8;
@@ -32,6 +33,7 @@
     --ink-dim: #6b7c91;
 
     --b200:  #5aa8ff;
+    --b200base: #4a6d99;
     --h200:  #3fd3b6;
     --mtp:   #f5a94f;
     --moreh: #c877f0;
@@ -47,6 +49,7 @@
   --ink-dim: #6b7c91;
 
   --b200:  #5aa8ff;
+  --b200base: #4a6d99;
   --h200:  #3fd3b6;
   --mtp:   #f5a94f;
   --moreh: #c877f0;
@@ -106,6 +109,7 @@ h1 {
 }
 .swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .tag.b200  .swatch { background: var(--b200); }
+.tag.b200base .swatch { background: var(--b200base); }
 .tag.h200  .swatch { background: var(--h200); }
 .tag.mtp   .swatch { background: var(--mtp); }
 .tag.moreh .swatch { background: var(--moreh); border-radius: 2px; transform: rotate(45deg); }
@@ -190,6 +194,7 @@ td:first-child {
 td.key { color: var(--ink); font-weight: 500; }
 tbody tr:last-child td { border-bottom: none; }
 tr.grp-b200  td:first-child { box-shadow: inset 3px 0 0 var(--b200); }
+tr.grp-b200base td:first-child { box-shadow: inset 3px 0 0 var(--b200base); }
 tr.grp-h200  td:first-child { box-shadow: inset 3px 0 0 var(--h200); }
 tr.grp-mtp   td:first-child { box-shadow: inset 3px 0 0 var(--mtp); }
 tr.grp-moreh td:first-child { box-shadow: inset 3px 0 0 var(--moreh); }
@@ -216,7 +221,8 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
       <span>가중치 FP8 · KV cache FP8</span>
     </div>
     <div class="legend">
-      <span class="tag b200"><span class="swatch"></span>B200 &nbsp;<span class="note">vLLM 0.28.0 TP=8, MTP 미적용</span></span>
+      <span class="tag b200"><span class="swatch"></span>B200 · MTP+EP &nbsp;<span class="note">spec-tokens 1 · expert parallel</span></span>
+      <span class="tag b200base"><span class="swatch"></span>B200 · 기준선 &nbsp;<span class="note">MTP·EP 미적용</span></span>
       <span class="tag h200"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 미사용</span></span>
       <span class="tag mtp"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 사용</span></span>
       <span class="tag moreh"><span class="swatch"></span>Moreh MI355X &nbsp;<span class="note">conc 256 단일 측정</span></span>
@@ -262,10 +268,14 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
   </div>
 
   <p class="foot">
-    <b>B200</b> — 직접 측정. TP=8 · <code>kv-cache-dtype fp8</code> · <code>max-model-len 16384</code>
-    · <code>max-num-seqs 256</code> · <code>gpu-memory-utilization 0.93</code>
-    · <code>async-scheduling</code> · chunked prefill + prefix caching · MTP 미적용.
-    KV cache 1,571,008 tok.<br>
+    <b>B200</b> — 직접 측정. 공통: TP=8 · <code>kv-cache-dtype fp8</code>
+    · <code>max-model-len 16384</code> · <code>max-num-seqs 256</code>
+    · <code>gpu-memory-utilization 0.93</code> · <code>async-scheduling</code>
+    · chunked prefill + prefix caching.<br>
+    <b>MTP+EP</b> = <code>--spec-method mtp --spec-tokens 1</code>
+    + <code>--enable-expert-parallel</code> (전문가 256개를 GPU 8장에 32개씩 배분).
+    MTP draft 수락률 83.3%. KV cache 1,457,536 tok (기준선 1,571,008 tok — MTP 레이어 메모리).
+    MTP·EP 를 동시에 적용했으므로 개선분의 기여도는 분리되지 않았습니다.<br>
     <b>H200 · Moreh</b> — <b>H200_GLM5.2_Measure.pdf</b> 인용.
     해당 문서에 ISL / OSL 및 서버 구성(max-num-seqs, kv-cache-dtype, gpu-util, 실제 TP)이
     기재되어 있지 않아 조건 일치를 확인할 수 없습니다. 표의 "FP8" 표기도 벤치 스크립트의
@@ -278,7 +288,16 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
 
 <script>
 const DATA = {
-  b200: { label: 'B200', color: 'b200', rows: [
+  b200: { label: 'B200 · MTP+EP', color: 'b200', rows: [
+    { c:4,   tpot:9.07,  inter:110.21, inTPS:2979,  outTPS:372,  totGPU:419  },
+    { c:8,   tpot:10.52, inter:95.02,  inTPS:5776,  outTPS:721,  totGPU:812  },
+    { c:16,  tpot:12.95, inter:77.20,  inTPS:9391,  outTPS:1173, totGPU:1320 },
+    { c:32,  tpot:17.02, inter:58.75,  inTPS:14118, outTPS:1764, totGPU:1985 },
+    { c:64,  tpot:32.49, inter:30.78,  inTPS:14660, outTPS:1831, totGPU:2061 },
+    { c:128, tpot:56.16, inter:17.81,  inTPS:16956, outTPS:2118, totGPU:2384 },
+    { c:256, tpot:75.24, inter:13.29,  inTPS:16534, outTPS:2065, totGPU:2325 },
+  ]},
+  b200base: { label: 'B200 · 기준선', color: 'b200base', dash: [5, 4], rows: [
     { c:4,   tpot:11.27, inter:88.73, inTPS:2437,  outTPS:304,  totGPU:343  },
     { c:8,   tpot:13.11, inter:76.29, inTPS:4553,  outTPS:569,  totGPU:640  },
     { c:16,  tpot:15.78, inter:63.37, inTPS:7365,  outTPS:920,  totGPU:1036 },
@@ -377,6 +396,7 @@ function series(key, metric) {
     pointRadius: single ? 7 : 3.5,
     pointHoverRadius: single ? 9 : 6,
     pointStyle: single ? 'rectRot' : 'circle',
+    borderDash: d.dash || [],
     showLine: !single,
     borderWidth: 2,
     tension: .3,
@@ -391,7 +411,7 @@ const charts = [
 ];
 const made = charts.map(([id, metric, yl]) => new Chart(document.getElementById(id), {
   type: 'line',
-  data: { datasets: ['b200','h200','mtp','moreh'].map(k => series(k, metric)) },
+  data: { datasets: ['b200','b200base','h200','mtp','moreh'].map(k => series(k, metric)) },
   options: baseOpts(yl),
 }));
 
@@ -399,7 +419,7 @@ const made = charts.map(([id, metric, yl]) => new Chart(document.getElementById(
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   made.forEach((ch, i) => {
     const metric = charts[i][1];
-    ch.data.datasets = ['b200','h200','mtp','moreh'].map(k => series(k, metric));
+    ch.data.datasets = ['b200','b200base','h200','mtp','moreh'].map(k => series(k, metric));
     ch.options = baseOpts(charts[i][2]);
     ch.update();
   });
@@ -410,7 +430,7 @@ const tb = document.getElementById('tb');
 const num = (v, d = 0) => v == null ? '—'
   : v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
 
-['b200','h200','mtp','moreh'].forEach((key, gi) => {
+['b200','b200base','h200','mtp','moreh'].forEach((key, gi) => {
   const d = DATA[key];
   if (gi > 0) {
     const sp = document.createElement('tr');
