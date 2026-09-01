@@ -254,15 +254,24 @@ KV cache 1,571,008 tokens. mnbt 는 미지정 시 max_model_len 과 같은 값(1
 | 128 | 60.58 | 16.51 | 16,094 | 2,010 |
 | 256 | 84.96 | 11.77 | 16,069 | 2,007 |
 
-### Expert Parallel 은 기본적으로 꺼져 있다
+### Expert Parallel 은 기본적으로 꺼져 있고, `--enable-expert-parallel` 로 켜진다
 
-로그 근거:
+**EP 활성 여부를 판정하는 로그는 이 두 개다:**
+```
+[expert_map_manager.py:245] [EP Rank 0/8] Expert parallelism is enabled.
+  Expert placement strategy: linear. Local/global number of experts: 32/256.
+[cuda_communicator.py:266] Using ['PYNCCL'] all-reduce backends for group 'ep:0'
+```
+켜면 전문가 256 개가 GPU 8 장에 32 개씩 통째로 배분되고 `ep:0` 통신 그룹이 생긴다.
+DP=1 이어도 TP 그룹 8 장에 걸쳐 EP 가 성립한다.
+
+**주의 — 다음 라인은 EP 지표가 아니다:**
 ```
 [fp8.py:713] Using MoEPrepareAndFinalizeNoDPEPMonolithic
-rank 0 ... DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
 ```
-`NoDPEP` = expert parallel 미사용. 전문가를 EP 로 분산하지 않고 TP 로 샤딩한다.
-world size 8 이 전부 TP 로 소진되고 DP=1.
+EP 를 켜도 끄도 동일하게 출력된다. `NoDP`(데이터 병렬 없음) + `Monolithic`(단일 노드)
+조건을 가리키며 EP 유무와 무관하다. 이것을 "No DP, No EP" 로 오독해
+EP 가 꺼졌다고 판단한 적이 있다 (2026-09-01).
 
 ### MoE 백엔드는 자동 선택된다
 
