@@ -79,6 +79,7 @@ Vast.ai 이미지와 달리 빈 서버다. **`setup/setup_deploygpu.sh` 를 먼�
 | FM: "ibstat not found" | 프로바이더의 FM 시작 스크립트가 요구 | `infiniband-diags` |
 | FM: "ib_umad not loaded" | NVL5 관리 경로 | `modprobe ib_umad` + modules-load.d |
 | FM: "/opt/nvidia/nvlsm/sbin/nvlsm does not exist" | NVLink Subnet Manager 미설치 | `apt install nvlsm` |
+| 기동 중 `FileNotFoundError: 'ninja'` (profile 단계) | FlashInfer 샘플링 커널 JIT 에 빌드 도구 필요 | `apt install ninja-build build-essential` |
 
 FM 패키지는 커널 드라이버와 **정확히 같은 버전**이어야 한다
 (`nvidia-fabricmanager-570=570.195.03-1`). forward-compat 은 사용자 공간

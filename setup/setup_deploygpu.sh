@@ -20,7 +20,10 @@ set -euo pipefail
 
 echo "=========== [A] 기본 구조 ==========="
 sudo apt-get update -q
-sudo apt-get install -y -q python3.12-venv infiniband-diags
+# ninja-build/build-essential: FlashInfer 가 샘플링 커널을 JIT 컴파일할 때
+# ninja 와 g++ 를 요구한다. 없으면 서버가 profile 단계에서
+# FileNotFoundError: 'ninja' 로 죽는다 (2026-09-01 실제 발생).
+sudo apt-get install -y -q python3.12-venv infiniband-diags ninja-build build-essential
 
 # /workspace -> 대용량 ephemeral 볼륨
 sudo mkdir -p /ephemeral/workspace
