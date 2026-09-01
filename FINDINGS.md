@@ -65,6 +65,10 @@ quantization_config  = {quant_method: fp8, activation_scheme: dynamic,
   플래그는 사실상 no-op.
 - **`--data-parallel-size 8` + TP=1 은 불가능.** DP 는 복제본마다 전체 모델을
   요구하므로 8×700GB 가 필요하다. CUDA OOM.
+- **`pgrep -f 'openai.api_server'` 로 서버 생존을 판정하면 안 된다.**
+  `vllm serve` 로 띄우면 기동 초기 cmdline 이 `vllm serve ...` 뿐이라 매칭되지
+  않는다. 살아있는 서버를 죽었다고 오판한다. `$!` 로 받은 PID 에 `kill -0` 을
+  쓰거나 패턴을 `'vllm serve|openai\.api_server|VLLM::'` 로 넓힐 것.
 - **맨 `python3` 로 실행하면 안 된다.** `/usr/bin/python3` 로 잡혀
   `ModuleNotFoundError: No module named 'vllm'`. `/venv/main/bin/python3` 명시.
 

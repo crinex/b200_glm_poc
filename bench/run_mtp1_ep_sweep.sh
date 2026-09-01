@@ -88,6 +88,18 @@ if [ "$SKIP_BOOT" != "1" ]; then
     printf '  %s\n' "${ARGS[*]}"
     : > "$LOG"
     setsid nohup "$VLLM" "${ARGS[@]}" > "$LOG" 2>&1 &
+    SERVER_PID=$!
+    echo "  PID $SERVER_PID"
+
+    # 생존 판정은 실제 PID 로 한다.
+    # pgrep -f 'openai.api_server' 는 기동 초기에 매칭되지 않는다.
+    # 그 시점 cmdline 은 'vllm serve ...' 뿐이므로 살아있는 서버를 죽었다고
+    # 오판해 스크립트가 종료된다 (2026-09-01 에 실제로 겪음).
+    alive() {
+        kill -0 "$SERVER_PID" 2>/dev/null && return 0
+        pgrep -f 'vllm serve|openai\.api_server|VLLM::' > /dev/null && return 0
+        return 1
+    }
 
     echo "기동 대기 (최대 35분)..."
     for i in $(seq 1 105); do
@@ -101,11 +113,14 @@ if [ "$SKIP_BOOT" != "1" ]; then
             grep -E -m1 -A8 "AssertionError|Engine core initialization failed|CUDA error|out of memory|unrecognized arguments|error: argument" "$LOG" >&2
             exit 1
         fi
-        if ! pgrep -f 'openai.api_server' > /dev/null; then
+        if ! alive; then
             echo "프로세스 사망. 로그 마지막 20줄:" >&2
             tail -20 "$LOG" >&2
             exit 1
         fi
+        # 진행 표시 (조용히 오래 걸리는 구간 구분)
+        stage=$(grep -aoE 'Loading safetensors checkpoint shards: +[0-9]+%|DeepGEMM warmup|Capturing CUDA graphs|GPU KV cache size|cubin_loader' "$LOG" 2>/dev/null | tail -1)
+        [ -n "$stage" ] && echo "  ... $((i * 20))s  $stage"
     done
     grep -q "Application startup complete" "$LOG" || { echo "기동 타임아웃" >&2; exit 1; }
 fi
