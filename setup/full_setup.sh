@@ -63,6 +63,10 @@ else
     bash bench/workload/build_gen8k.sh "$GEN_DIR" 1024 2>&1 | tail -4
 fi
 
+# ── 4. 하드웨어 지문 ──────────────────────────────────────────────
+step "지문 수집 (서버 간 성능차 판정용 — setup/fingerprint.sh)"
+bash setup/fingerprint.sh || echo "  (지문 수집 실패 — 무시하고 계속)"
+
 cat <<EOF
 
 =========== 세팅 완료 ===========

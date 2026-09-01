@@ -173,6 +173,10 @@ echo "=== 벤치 sweep=$SWEEP, requests=$REQUESTS, max_tokens=$MAX_TOKENS ==="
     --max-tokens "$MAX_TOKENS" \
     --out "$OUT" 2>&1 | tee "$BENCH_LOG" | grep -vE "req/s.*%\|"
 
+# 측정 결과 옆에 하드웨어 지문 사본을 남긴다 — "이 수치가 어느 하드웨어에서
+# 나왔는지"를 결과 폴더만 봐도 알 수 있게 (서버 간 편차 -8~-16% 실측됨)
+bash "$REPO/setup/fingerprint.sh" "$OUT/fingerprint.txt" 2>/dev/null     || echo "(지문 수집 실패 — 측정 결과에는 영향 없음)"
+
 # ── 4. 결과 ───────────────────────────────────────────────────────
 echo ""
 echo "=== 결과 ==="
