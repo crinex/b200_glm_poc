@@ -135,6 +135,19 @@ WARNING: 200 sheets < 1024 requests -- reused sheets hit the prefix cache
 ```
 이 경고가 나오면 결과를 버릴 것.
 
+### `--conc` 는 `--sweep ""` 없이는 무시된다
+
+```python
+concs = [int(c) for c in args.sweep.split(",") if c.strip()] or [args.conc]
+```
+
+`bench_sweep_b200.py` 의 `--sweep` 기본값이 `"1,4,8,16,32,64,128,256"` 이므로
+`--sweep` 을 생략하면 `--conc` 가 무시되고 전체 sweep 이 돌아간다.
+단일 concurrency 만 재려면 `--sweep "" --conc N` 을 함께 줘야 한다.
+(`bench_sweep_h200.py` 기본값은 `"12,64,128,200,256"`, `bench_sweep_mi355x.py` 는 `""`)
+
+단일 conc 실행은 wave 축소(conc*4)가 적용되지 않아 `--requests` 전량을 보낸다.
+
 ### 벤치 스크립트의 `--device` / `--precision` / `--tp` 는 라벨이다
 
 ```python

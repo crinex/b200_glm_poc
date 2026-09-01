@@ -91,17 +91,25 @@ grep -a "spec_method" "$LOG" 2>/dev/null | tail -1 | tr ',' '\n' | grep -E "spec
 curl -s "http://localhost:$PORT/v1/models" | head -c 200; echo
 
 # ── 3. 벤치 (conc 단일) ───────────────────────────────────────────
-# --sweep 없이 --conc 를 주면 --requests 전량을 보낸다 (wave 축소 없음).
+# 중요: --sweep 을 반드시 빈 문자열로 줘야 --conc 가 적용된다.
+#   concs = [int(c) for c in args.sweep.split(",") if c.strip()] or [args.conc]
+# bench_sweep_b200.py 의 --sweep 기본값이 "1,4,8,...,256" 이므로,
+# --sweep 을 생략하면 --conc 가 무시되고 전체 sweep 이 돌아간다.
+#
+# 단일 conc 실행은 wave 축소(conc*4)가 적용되지 않아 --requests 전량을 보낸다.
 echo ""
 echo "=== 벤치 conc=$CONC, requests=$REQUESTS, max_tokens=$MAX_TOKENS ==="
+BENCH_LOG="${BENCH_LOG:-/workspace/logs/bench_mtp_conc${CONC}.log}"
 "$PY" -u "$REPO/bench/bench_sweep_b200.py" \
     --host localhost --port "$PORT" --model "$SERVED" \
     --device B200 --tp 8 --gpus 8 --precision FP8 \
     --gen-dir "$GEN_DIR" \
+    --sweep "" \
     --conc "$CONC" \
     --requests "$REQUESTS" \
     --max-tokens "$MAX_TOKENS" \
-    --out "$OUT" 2>&1 | grep -vE "req/s.*%\|"
+    --out "$OUT" 2>&1 | tee "$BENCH_LOG" | grep -vE "req/s.*%\|"
+echo "벤치 로그: $BENCH_LOG"
 
 echo ""
 echo "=== 결과 ==="
