@@ -214,9 +214,61 @@ MXFP4(4bit)면 FP8(8bit) 대비 decode 가 빨라 Output TPS 우위(2,777)의 �
 
 ---
 
+## 6-1. 2026-09-01 측정 (지정 서빙 구성)
+
+서버 인자 (포트 30269 는 bench_sweep_h200.py 기본 포트와 동일 — H200 구성으로 추정):
+```
+--tensor-parallel-size 8 --async-scheduling --kv-cache-dtype fp8
+--max-model-len 16384 --max-num-seqs 256 --gpu-memory-utilization 0.93
+--enable-chunked-prefill --enable-prefix-caching --trust-remote-code
+```
+`--ignore-eos 1` 은 vllm serve 인자가 아니므로 제외했다 (argparse 386 개 옵션 중
+eos 포함 옵션 0 개). 벤치가 요청별로 전송하므로 동작은 동일.
+
+KV cache 1,571,008 tokens. mnbt 는 미지정 시 max_model_len 과 같은 값(16384)이 된다.
+
+| conc | TPOT(ms) | Interactivity | Input TPS | Output TPS |
+|---|---|---|---|---|
+| 4 | 11.27 | 88.73 | 2,437 | 304 |
+| 8 | 13.11 | 76.29 | 4,553 | 569 |
+| 16 | 15.78 | 63.37 | 7,365 | 920 |
+| 32 | 20.14 | 49.65 | 11,274 | 1,408 |
+| 64 | 34.24 | 29.21 | 14,181 | 1,772 |
+| 128 | 60.58 | 16.51 | 16,094 | 2,010 |
+| 256 | 84.96 | 11.77 | 16,069 | 2,007 |
+
+### Expert Parallel 은 기본적으로 꺼져 있다
+
+로그 근거:
+```
+[fp8.py:713] Using MoEPrepareAndFinalizeNoDPEPMonolithic
+rank 0 ... DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+```
+`NoDPEP` = expert parallel 미사용. 전문가를 EP 로 분산하지 않고 TP 로 샤딩한다.
+world size 8 이 전부 TP 로 소진되고 DP=1.
+
+### MoE 백엔드는 자동 선택된다
+
+```
+[fp8.py:411] Using FLASHINFER_TRTLLM Fp8 MoE backend out of potential backends:
+  ['AITER','FLASHINFER_TRTLLM','FLASHINFER_CUTLASS','DEEPGEMM','TRITON','MA...']
+TRT-LLM fused MoE cooperative launch SM allocation: 140 SMs used for MoE,
+  8 SMs reserved (total SMs: 148)
+```
+`--moe-backend` 로 강제 가능. SM 148 중 140 을 MoE 가 쓰므로 튜닝 여지가 있다.
+
+### MTP 구성
+
+`--spec-method mtp --spec-tokens 2` (JSON `--speculative-config` 보다 인용이 안전).
+MTP 활성 시 KV cache 가 1,571,008 → 1,472,768 tokens 로 줄어든다 (MTP 레이어 메모리).
+vLLM 경고: `num_speculative_tokens > 1` 은 같은 MTP 레이어를 여러 번 forward 하므로
+acceptance rate 가 낮아질 수 있다 → 1 도 함께 시험할 가치가 있다.
+
+---
+
 ## 7. 미검증 가설
 
-### mnbt 8192 < ISL 8,200 이 고concurrency 병목이다
+### [기각] mnbt 8192 < ISL 8,200 이 고concurrency 병목이다
 
 프롬프트 하나가 스텝당 토큰 예산보다 크다. chunked prefill 에서 prefill 과 decode 가
 같은 8192 예산을 나눠 쓰므로, 8,200 토큰 프롬프트를 채우면 그 스텝의 decode 예산이
@@ -227,8 +279,25 @@ MXFP4(4bit)면 FP8(8bit) 대비 decode 가 빨라 Output TPS 우위(2,777)의 �
 또 OSL 을 512 → 1024 로 늘리면 conc≥16 전 구간에서 Output TPS 가 개선되는데,
 출력이 길어져 prefill 압력이 절반으로 줄어든 것과 부합한다.
 
-**검증 방법**: `MAX_BATCHED=32768 bash serve/start_server.sh` 로 재기동해
-동일 벤치 재측정. 아직 안 함.
+**결과: 기각.** 2026-09-01 에 mnbt 16384 (+ `--async-scheduling`) 로 재측정했으나
+전 구간 차이가 1~3% 이내이고 방향도 일관되지 않았다.
+
+| conc | TPOT (mnbt 8192 → 16384) | Output TPS |
+|---|---|---|
+| 32 | 20.70 → 20.14 | 1,465 → 1,408 |
+| 64 | 35.57 → 34.24 | 1,734 → 1,772 |
+| 128 | 62.69 → 60.58 | 1,975 → 2,010 |
+| 256 | 83.75 → 84.96 | 2,016 → 2,007 |
+
+**실제 원인은 KV cache 용량으로 보인다.** 요청당 9,224 토큰(ISL 8,200 + OSL 1,024)에
+KV cache 1,571,008 토큰이므로 약 170 개만 상주 가능하다. conc=256 이면 86 개가
+대기하므로 사용자별 체감 속도가 떨어진다. 어제 "conc=64 구간은 KV 여유가 충분하다"는
+관찰만으로 예산 문제로 단정한 것이 오류였다.
+
+conc=64 구간의 TPOT 증가는 배치 확대에 따른 decode 스텝당 연산량 증가로 보인다.
+
+주의: 이 측정은 mnbt 와 `--async-scheduling` 을 동시에 바꿨다. 두 효과가 상쇄됐을
+가능성은 낮다고 본다 (전 구간 차이가 1~3% 로 균일).
 
 ### MTP speculative decoding 효과
 

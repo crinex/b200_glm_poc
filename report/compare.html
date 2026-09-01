@@ -209,14 +209,14 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
   <header>
     <h1>GLM-5.2 가속기 벤치마크</h1>
     <div class="cond">
+      <span>gen8k · 1,024 고유 sheet</span>
       <span>ISL ≈ 8,200 tok</span>
-      <span>OSL 512 tok</span>
-      <span>FP8</span>
+      <span>OSL 1,024 tok</span>
       <span>8 GPU / server</span>
-      <span>1,024 고유 sheet</span>
+      <span>가중치 FP8 · KV cache FP8</span>
     </div>
     <div class="legend">
-      <span class="tag b200"><span class="swatch"></span>B200 &nbsp;<span class="note">vLLM TP=8, MTP 미적용</span></span>
+      <span class="tag b200"><span class="swatch"></span>B200 &nbsp;<span class="note">vLLM 0.28.0 TP=8, MTP 미적용</span></span>
       <span class="tag h200"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 미사용</span></span>
       <span class="tag mtp"><span class="swatch"></span>H200 &nbsp;<span class="note">MTP 사용</span></span>
       <span class="tag moreh"><span class="swatch"></span>Moreh MI355X &nbsp;<span class="note">conc 256 단일 측정</span></span>
@@ -262,9 +262,16 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
   </div>
 
   <p class="foot">
-    B200은 오늘 vLLM 0.28.0 · TP=8로 직접 측정했고, H200 및 Moreh 수치는 <b>H200_GLM5.2_Measure.pdf</b>에서 가져왔습니다.
-    네 측정 모두 ISL ≈ 8,200 tok / OSL 512 tok 동일 조건입니다.
-    B200에는 MTP speculative decoding을 적용하지 않았습니다.
+    <b>B200</b> — 직접 측정. TP=8 · <code>kv-cache-dtype fp8</code> · <code>max-model-len 16384</code>
+    · <code>max-num-seqs 256</code> · <code>gpu-memory-utilization 0.93</code>
+    · <code>async-scheduling</code> · chunked prefill + prefix caching · MTP 미적용.
+    KV cache 1,571,008 tok.<br>
+    <b>H200 · Moreh</b> — <b>H200_GLM5.2_Measure.pdf</b> 인용.
+    해당 문서에 ISL / OSL 및 서버 구성(max-num-seqs, kv-cache-dtype, gpu-util, 실제 TP)이
+    기재되어 있지 않아 조건 일치를 확인할 수 없습니다. 표의 "FP8" 표기도 벤치 스크립트의
+    라벨 인자일 뿐 측정값이 아닙니다. Moreh 는 원본 워크플로 문서의 예시 명령이
+    <code>--precision MXFP4</code> 라 FP8 표기와 상충합니다.<br>
+    따라서 이 페이지는 <b>각 측정의 처리량 비교</b>이며 동일 조건 하드웨어 비교로 읽으면 안 됩니다.
   </p>
 
 </div>
@@ -272,14 +279,13 @@ tr.spacer td { padding: 0; height: 7px; background: var(--raised); border-bottom
 <script>
 const DATA = {
   b200: { label: 'B200', color: 'b200', rows: [
-    { c:1,   tpot:9.46,   inter:105.70, inTPS:1574,  outTPS:99,   totGPU:209  },
-    { c:4,   tpot:12.00,  inter:83.36,  inTPS:4903,  outTPS:307,  totGPU:651  },
-    { c:8,   tpot:13.34,  inter:74.97,  inTPS:8387,  outTPS:524,  totGPU:1114 },
-    { c:16,  tpot:17.14,  inter:58.34,  inTPS:13050, outTPS:815,  totGPU:1733 },
-    { c:32,  tpot:24.08,  inter:41.54,  inTPS:19223, outTPS:1201, totGPU:2553 },
-    { c:64,  tpot:46.83,  inter:21.35,  inTPS:19797, outTPS:1237, totGPU:2629 },
-    { c:128, tpot:98.49,  inter:10.15,  inTPS:19990, outTPS:1248, totGPU:2655 },
-    { c:256, tpot:136.87, inter:7.31,   inTPS:20259, outTPS:1265, totGPU:2691 },
+    { c:4,   tpot:11.27, inter:88.73, inTPS:2437,  outTPS:304,  totGPU:343  },
+    { c:8,   tpot:13.11, inter:76.29, inTPS:4553,  outTPS:569,  totGPU:640  },
+    { c:16,  tpot:15.78, inter:63.37, inTPS:7365,  outTPS:920,  totGPU:1036 },
+    { c:32,  tpot:20.14, inter:49.65, inTPS:11274, outTPS:1408, totGPU:1585 },
+    { c:64,  tpot:34.24, inter:29.21, inTPS:14181, outTPS:1772, totGPU:1994 },
+    { c:128, tpot:60.58, inter:16.51, inTPS:16094, outTPS:2010, totGPU:2263 },
+    { c:256, tpot:84.96, inter:11.77, inTPS:16069, outTPS:2007, totGPU:2259 },
   ]},
   h200: { label: 'H200 · MTP 미사용', color: 'h200', rows: [
     { c:4,   inter:59.06, inTPS:1627, outTPS:203 },
