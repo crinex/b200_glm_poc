@@ -78,7 +78,6 @@ bench/
   experiments.conf      ★ 실험 목록 — 이 파일의 값만 편집
   run_experiments.sh    conf 를 읽어 순차 실행 + 요약 생성
   run_mtp1_ep_sweep.sh  단일 실험 엔진 (conf 실행기가 호출)
-  run_3config_chain.sh  (구) 3구성 체인 — experiments.conf 로 대체됨
   run_mtp_conc256.sh    단일 concurrency 측정
   bench_sweep_b200.py   B200 벤치
   bench_sweep_h200.py   H200 원본 (참조)
@@ -132,7 +131,7 @@ gen8k 1,024장 · ISL ≈ 8,200 · OSL 1,024 · Output TPS (tok/s per server)
 
 ## 다음 작업
 
-완료 (서버 D, 풀스펙): 기준선 / MTP1+EP1 / MTP1+EP8 — `bench/run_3config_chain.sh`
+완료: 기준선 / MTP1+EP1 / MTP1+EP8 / TP2·DP4·EP8 (experiments.conf 로 재현)
 결론: 최적 = **MTP1 + EP1**, conc=128 에서 2,251 tok/s (FINDINGS.md §6-3)
 
 남은 후보:
