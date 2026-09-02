@@ -553,6 +553,33 @@ H200 MTP 702 대비 4.5배). 사용자 제안이 만든 결과다.
 주의: 사용자가 처음 고정한 "TP8·EP1" 프레임 밖의 축이다. vLLM 옵션 튜닝
 (Phase 1)과는 다른 병렬화 축 실험으로 분류.
 
+
+## 6-5. DCP (Decode Context Parallel) — GLM sparse MLA 미지원 (기각, 2026-09-02)
+
+`--decode-context-parallel-size 2` 시도. 소스상 world size 를 안 늘리고 TP 랭크를
+재사용해 decode KV 를 분할하므로 "TP=8 유지하며 KV↑" 가 기대됐으나 **기동 실패**.
+
+근본 원인 (dcp2 로그):
+```
+[dcp_utils.py:691] Using direct symmetric-memory DCP query gather for MLA.   ← DCP 초기화는 됨
+...profile_cudagraph_memory → _dummy_run →
+AttributeError: 'FlashInferMLASparseMetadata' object has no attribute 'decode'
+```
+
+DCP 는 일반 MLA(FlashInferMLA)에는 구현돼 있으나, GLM-5.2 의 **Sparse MLA**
+(DEEPSEEK_V32_INDEXER, FlashInferMLASparseMetadata)에는 DCP 가 요구하는 `decode`
+속성이 없다. **vLLM 0.28.0 코드 미구현**이라 옵션으로 우회 불가. CUDA graph 캡처
+단계에서 죽는다.
+
+- dcp4 도 동일 실패 확실 → 미실행
+- 이론적 우회: `--attention-backend FLASHMLA_SPARSE` 로 메타데이터 클래스를 바꾸면
+  될 가능성 있으나, fp8_ds_mla KV 레이아웃이 딸려오는 별개 대변경. 미검증
+- 노이즈 바닥(P0) 은 재확인됨: dp4tp2 재측정이 conc=128 +0.4%, conc=256 −1.0%
+  로 지난 측정과 ±1% 일치 → 고conc 는 1% 초과 차이면 실효로 판정 가능
+
+DP attention(TP2·DP4·EP8)이 여전히 고conc 최고. DCP 로 그 상위호환을 노렸으나
+현 vLLM 버전에서는 불가.
+
 ---
 
 ## 7. 미검증 가설
