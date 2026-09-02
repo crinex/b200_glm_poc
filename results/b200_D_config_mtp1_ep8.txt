@@ -1,3 +1,0 @@
-invoked : env SPEC_TOKENS=1 bash bench/run_mtp1_ep_sweep.sh
-date    : 2026-09-01T14:30:53Z
-client  : bench_sweep_b200.py --sweep 4,8,16,32,64,128,256 --requests 1024 --max-tokens 1024 (ignore_eos=1 기본, temperature/top_p 미전송, thinking off)
