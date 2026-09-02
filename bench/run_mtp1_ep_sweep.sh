@@ -47,6 +47,12 @@ MAX_TOKENS="${MAX_TOKENS:-1024}"       # OSL. "8k1k 벤치" 문서 조건
 SPEC_TOKENS="${SPEC_TOKENS:-1}"
 NO_MTP="${NO_MTP:-0}"
 NO_EP="${NO_EP:-0}"
+# 병렬화 축. 기본 TP=8 DP=1. TP*DP 는 GPU 수(8)와 같아야 한다.
+# DP>1 이면 EP=TP*DP 로 파생되고, API 서버가 DP 수만큼 떠서 기동이 지연되므로
+# API_SERVERS=1 로 강제한다 (안 하면 기동 타임아웃 — FINDINGS §6-4).
+TP="${TP:-8}"
+DP="${DP:-1}"
+API_SERVERS="${API_SERVERS:-}"     # 비면 DP>1 일 때 자동 1
 REPO="${REPO:-/workspace/b200_glm_poc}"
 SKIP_BOOT="${SKIP_BOOT:-0}"
 # 추가 vllm serve 인자 (공백 구분). 예: EXTRA_ARGS="--disable-custom-all-reduce"
@@ -55,6 +61,8 @@ EXTRA_ARGS="${EXTRA_ARGS:-}"
 TAG_SUFFIX="${TAG_SUFFIX:-}"
 
 TAG="$([ "$NO_MTP" = "1" ] && echo "nomtp" || echo "mtp${SPEC_TOKENS}")$([ "$NO_EP" = "1" ] && echo "_noep" || echo "_ep")"
+# TP/DP 가 기본(8/1)이 아니면 태그에 반영
+[ "$TP" = "8" ] && [ "$DP" = "1" ] || TAG="tp${TP}dp${DP}_${TAG}"
 if [ -n "$EXTRA_ARGS" ]; then
     if [ -n "$TAG_SUFFIX" ]; then
         TAG="${TAG}_${TAG_SUFFIX}"
@@ -70,7 +78,8 @@ BENCH_LOG="${BENCH_LOG:-/workspace/logs/bench_${TAG}.log}"
 mkdir -p "$(dirname "$LOG")" "$OUT"
 
 echo "======================================"
-echo "  구성 : MTP=$([ "$NO_MTP" = "1" ] && echo off || echo "spec-tokens $SPEC_TOKENS"), EP=$([ "$NO_EP" = "1" ] && echo off || echo on)"
+echo "  병렬 : TP=$TP DP=$DP$([ "$NO_EP" = "1" ] && echo " EP=off" || echo " EP=$((TP*DP))")"
+echo "  구성 : MTP=$([ "$NO_MTP" = "1" ] && echo off || echo "spec-tokens $SPEC_TOKENS")"
 echo "  추가 : ${EXTRA_ARGS:-(없음)}"
 echo "  sweep: $SWEEP"
 echo "  OSL  : $MAX_TOKENS"
@@ -88,7 +97,7 @@ if [ "$SKIP_BOOT" != "1" ]; then
         serve "$MODEL_DIR"
         --host 0.0.0.0
         --port "$PORT"
-        --tensor-parallel-size 8
+        --tensor-parallel-size "$TP"
         --async-scheduling
         --kv-cache-dtype fp8
         --served-model-name "$SERVED"
@@ -99,6 +108,13 @@ if [ "$SKIP_BOOT" != "1" ]; then
         --enable-prefix-caching
         --trust-remote-code
     )
+    [ "$DP" = "1" ] || ARGS+=(--data-parallel-size "$DP")
+    # DP>1 이면 API 서버 1개로 강제 (기본은 DP 수만큼 → 기동 타임아웃)
+    if [ "$DP" != "1" ]; then
+        ARGS+=(--api-server-count "${API_SERVERS:-1}")
+    elif [ -n "$API_SERVERS" ]; then
+        ARGS+=(--api-server-count "$API_SERVERS")
+    fi
     [ "$NO_MTP" = "1" ] || ARGS+=(--spec-method mtp --spec-tokens "$SPEC_TOKENS")
     [ "$NO_EP" = "1" ] || ARGS+=(--enable-expert-parallel)
     # shellcheck disable=SC2206  # 공백 구분 인자를 그대로 펼친다
@@ -108,6 +124,9 @@ if [ "$SKIP_BOOT" != "1" ]; then
     echo "=== 서버 기동 ==="
     printf '  %s\n' "${ARGS[*]}"
     : > "$LOG"
+    # DP 멀티엔진은 torch.compile 이 직렬화되어 기동이 길다 (10분+).
+    # 엔진 준비 타임아웃을 넉넉히 (FINDINGS §6-4).
+    [ "$DP" != "1" ] && export VLLM_ENGINE_READY_TIMEOUT_S="${VLLM_ENGINE_READY_TIMEOUT_S:-1800}"
     setsid nohup "$VLLM" "${ARGS[@]}" > "$LOG" 2>&1 &
     SERVER_PID=$!
     echo "  PID $SERVER_PID"
