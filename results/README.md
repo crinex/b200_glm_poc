@@ -7,6 +7,23 @@
 **서버가 다르면 수치를 직접 비교하지 말 것.** 같은 구성이 서버 간 −16% 차이났다
 (FINDINGS.md §6-2).
 
+## 서버 E — Vast 계열 (드라이버 595.91.07, 1000W, docker, 2026-09-02) ★최신
+
+가장 넓게 탐색한 세트. **DP attention 이 고conc 에서 최고 기록.**
+
+| 파일 | 구성 | conc=128 | conc=256 |
+|---|---|---|---|
+| `b200_E_baseline_ref_sweep.md` | TP8·EP1·MTP1 (기준) | 2,193 | 2,174 |
+| `b200_E_mtp2_sweep.md` | TP8·EP1·MTP2 (스크리닝 32/128/256) | 2,338 | 2,278 |
+| `b200_E_dp4tp2_ep8_sweep.md` | **TP2·DP4·EP8·MTP1** | **2,494** | **3,188** |
+
+- MTP spec=2: conc≥128 에서 +6% (저conc 는 −19%, spec=1 이 유리)
+- **TP2·DP4·EP8: conc≥128 에서 우세, conc=256 에서 +47% (세션 최고 3,188 tok/s).**
+  저conc(≤32)는 −33~37%. 손익분기 conc=64. 상세: FINDINGS §6-4
+- DCP(`--decode-context-parallel-size`)는 GLM sparse MLA 미지원으로 기각 (§6-5)
+
+노이즈 바닥: dp4tp2 재측정이 conc128/256 에서 ±1% 재현 (고conc 는 1% 초과가 실효).
+
 ## 서버 D — Vast 계열 (드라이버 595.91.07, 1000W, docker, 2026-09-01)
 
 동일 서버 3구성 완전 세트. **지문 동봉: `fingerprint_serverD_20260901.txt`**

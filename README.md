@@ -5,6 +5,19 @@ NVIDIA B200 (Blackwell sm_100) 8장에서 GLM-5.2 FP8 추론 성능 측정 및 �
 **측정값과 검증된 사실은 [FINDINGS.md](FINDINGS.md) 를 먼저 읽을 것.**
 서버 인자 근거, 실패한 조합, 틀린 추론 기록이 모두 거기 있다.
 
+
+## 문서
+
+| 문서 | 내용 |
+|---|---|
+| [FINDINGS.md](FINDINGS.md) | 검증된 사실·실패 기록 (§0 NCCL 교착, §6 측정, §6-4 DP attention, §6-5 DCP 기각) |
+| [docs/실험_가이드.md](docs/실험_가이드.md) | 세팅→실행→conf작성→재현→운영규칙 |
+| [docs/학습노트_MTP_EP_하드웨어.md](docs/학습노트_MTP_EP_하드웨어.md) | MTP·EP·하드웨어 지문·topo -m 해설 |
+| [docs/조사_vllm_튜닝후보.md](docs/조사_vllm_튜닝후보.md) | vLLM 옵션 튜닝 후보 |
+| [docs/조사_미탐색_고효과옵션.md](docs/조사_미탐색_고효과옵션.md) | DCP·DBO·all2all 등 미탐색 후보 |
+| [results/README.md](results/README.md) | 측정 결과 인덱스 (서버 A~E) |
+| docs/archive/ | 커널·프레임워크 최적화 조사 (별개 축, 참고용) |
+
 ## 서버 리셋 후 복원 — 두 명령
 
 ```bash

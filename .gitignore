@@ -3,3 +3,6 @@ __pycache__/
 *.log
 .DS_Store
 *.egg-info/
+
+# Excel 임시 잠금 파일
+~$*
